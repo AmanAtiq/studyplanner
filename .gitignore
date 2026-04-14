@@ -1,15 +1,24 @@
 *.iml
 .gradle
 /local.properties
+<<<<<<< HEAD
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
+=======
+/.idea
+>>>>>>> eb7d1561246a8482446ed58b38fa850a9a0307c9
 .DS_Store
 /build
 /captures
 .externalNativeBuild
 .cxx
 local.properties
+<<<<<<< HEAD
+=======
+google-services.json
+*.keystore
+>>>>>>> eb7d1561246a8482446ed58b38fa850a9a0307c9
