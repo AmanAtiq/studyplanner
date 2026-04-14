@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "461074089955",
+    "project_id": "bloom-within",
+    "storage_bucket": "bloom-within.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:461074089955:android:c6ed30c9b18145c35c02d6",
+        "android_client_info": {
+          "package_name": "com.studyassistant"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyajp5I1RQSeJNWGzeH11zqNkYXiHUI28"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

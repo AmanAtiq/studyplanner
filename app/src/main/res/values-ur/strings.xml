@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">اسٹڈی اسسٹنٹ</string>
+    <string name="home_title">میرے نوٹس</string>
+    <string name="add_note">نوٹ شامل کریں</string>
+    <string name="upload_note">نوٹ اپلوڈ کریں</string>
+    <string name="note_title">عنوان</string>
+    <string name="note_content">مواد</string>
+    <string name="save_summarize">محفوظ کریں اور خلاصہ بنائیں</string>
+    <string name="ai_summary">AI خلاصہ</string>
+    <string name="take_quiz">کوئز لیں</string>
+    <string name="study_planner">مطالعہ منصوبہ</string>
+    <string name="weak_areas">کمزور موضوعات</string>
+    <string name="loading">لوڈ ہو رہا ہے...</string>
+    <string name="generating_quiz">AI سوالات بنا رہا ہے...</string>
+    <string name="check_answer">جواب چیک کریں</string>
+    <string name="next_question">اگلا سوال</string>
+    <string name="see_results">نتیجہ دیکھیں</string>
+    <string name="profile">پروفائل</string>
+    <string name="sign_out">سائن آؤٹ</string>
+    <string name="save">محفوظ کریں</string>
+    <string name="target_exam">ہدف امتحان</string>
+</resources>
