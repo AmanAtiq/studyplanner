@@ -3,10 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <application
-<<<<<<< HEAD
         android:name=".StudyAssistantApp"
-=======
->>>>>>> eb7d1561246a8482446ed58b38fa850a9a0307c9
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -18,13 +15,7 @@
         tools:targetApi="31">
         <activity
             android:name=".MainActivity"
-<<<<<<< HEAD
             android:exported="true">
-=======
-            android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.StudyAssistant">
->>>>>>> eb7d1561246a8482446ed58b38fa850a9a0307c9
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

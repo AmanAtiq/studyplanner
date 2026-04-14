@@ -1,11 +1,4 @@
-<<<<<<< HEAD
 <resources>
     <style name="Theme.StudyAssistant" parent="Theme.Material3.DayNight.NoActionBar">
     </style>
-=======
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-
-    <style name="Theme.StudyAssistant" parent="android:Theme.Material.Light.NoActionBar" />
->>>>>>> eb7d1561246a8482446ed58b38fa850a9a0307c9
 </resources>
