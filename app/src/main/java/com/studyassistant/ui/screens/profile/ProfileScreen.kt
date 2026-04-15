@@ -25,6 +25,7 @@ import com.studyassistant.viewmodel.ProfileViewModel
 @Composable
 fun ProfileScreen(
     onBack: () -> Unit,
+    onSignOut: () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -36,7 +37,7 @@ fun ProfileScreen(
             title = { Text("Sign Out") },
             text = { Text("Are you sure you want to sign out?") },
             confirmButton = {
-                TextButton(onClick = { viewModel.signOut(); onBack() }) {
+                TextButton(onClick = { viewModel.signOut(); onSignOut() }) {
                     Text("Sign Out", color = MaterialTheme.colorScheme.error)
                 }
             },
@@ -108,23 +109,6 @@ fun ProfileScreen(
             // Settings
             SectionTitle("Preferences")
 
-            // Language
-            SettingRow(
-                icon = Icons.Default.Language,
-                title = "Summary Language",
-                subtitle = if (uiState.selectedLanguage == AppLanguage.URDU)
-                    "Urdu (اردو)" else "English"
-            ) {
-                LanguageToggle(
-                    currentLanguage = uiState.selectedLanguage,
-                    onToggle = {
-                        viewModel.onLanguageChange(
-                            if (uiState.selectedLanguage == AppLanguage.ENGLISH)
-                                AppLanguage.URDU else AppLanguage.ENGLISH
-                        )
-                    }
-                )
-            }
 
             // Target exam
             SectionTitle("Target Exam")

@@ -12,7 +12,8 @@ import java.util.concurrent.TimeUnit
 
 // ── Client builder ────────────────────────────────────
 object AIApiClient {
-    private const val BASE_URL = "https://api.anthropic.com/"
+    // Using Deepseek AI API base URL - CORRECT ENDPOINT
+    private const val BASE_URL = "https://api.deepseek.com/"
 
     fun create(): AIApiService {
         val logging = HttpLoggingInterceptor().apply {
@@ -20,8 +21,10 @@ object AIApiClient {
         }
         val client = OkHttpClient.Builder()
             .addInterceptor(logging)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(120, TimeUnit.SECONDS)
+            .callTimeout(180, TimeUnit.SECONDS)
             .build()
 
         return Retrofit.Builder()

@@ -83,20 +83,6 @@ fun NoteCard(
                     }
                 }
                 Row {
-                    if (note.language == AppLanguage.URDU) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = UrduAccent.copy(alpha = 0.15f)
-                        ) {
-                            Text(
-                                text = "اردو",
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = UrduAccent
-                            )
-                        }
-                        Spacer(Modifier.width(4.dp))
-                    }
                     IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete",
                             tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))

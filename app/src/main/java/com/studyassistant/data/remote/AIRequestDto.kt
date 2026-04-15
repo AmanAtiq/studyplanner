@@ -17,9 +17,9 @@ data class AIMessage(
 )
 
 data class AIRequest(
-    val model: String = "claude-opus-4-20250514",
+    val model: String = "deepseek-chat",
     @SerializedName("max_tokens") val maxTokens: Int = 2048,
     val messages: List<AIMessage>,
-    val system: String? = null
+    val temperature: Double = 0.7
 )
 

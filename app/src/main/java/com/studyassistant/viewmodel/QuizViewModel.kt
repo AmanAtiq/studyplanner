@@ -9,6 +9,7 @@ import com.studyassistant.repository.LocalRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 data class QuizUiState(
@@ -45,6 +46,15 @@ class QuizViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false, error = "Note not found") }
                 return@launch
             }
+
+            // Check if a quiz already exists in local cache for this note
+            val cachedQuizzes = localRepository.getCachedQuizzes().first()
+            val existing = cachedQuizzes.find { it.noteId == noteId }
+            if (existing != null) {
+                _uiState.update { it.copy(quiz = existing, isLoading = false, language = lang) }
+                return@launch
+            }
+
             val result = generateQuizUseCase(note, language = lang)
             result.fold(
                 onSuccess = { quiz ->

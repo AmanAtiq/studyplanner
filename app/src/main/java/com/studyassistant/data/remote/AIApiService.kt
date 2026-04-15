@@ -12,10 +12,9 @@ import java.util.concurrent.TimeUnit
 
 // ── Retrofit Service ──────────────────────────────────
 interface AIApiService {
-    @POST("v1/messages")
+    @POST("chat/completions")
     suspend fun sendMessage(
-        @Header("x-api-key") apiKey: String,
-        @Header("anthropic-version") version: String = "2023-06-01",
+        @Header("Authorization") authHeader: String,
         @Body request: AIRequest
     ): AIResponse
 }

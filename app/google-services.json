@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "461074089955",
-    "project_id": "bloom-within",
-    "storage_bucket": "bloom-within.firebasestorage.app"
+    "project_number": "22334162419",
+    "project_id": "aistudenthelper-1ca6b",
+    "storage_bucket": "aistudenthelper-1ca6b.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:461074089955:android:c6ed30c9b18145c35c02d6",
+        "mobilesdk_app_id": "1:22334162419:android:6e951df797e513cb883e86",
         "android_client_info": {
           "package_name": "com.studyassistant"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCyajp5I1RQSeJNWGzeH11zqNkYXiHUI28"
+          "current_key": "AIzaSyB4PIT5SxN0_VYRpC5NtbxpXvpNkB1MEnE"
         }
       ],
       "services": {

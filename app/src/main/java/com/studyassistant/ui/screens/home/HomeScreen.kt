@@ -30,6 +30,7 @@ fun HomeScreen(
     onNavigateToUpload: () -> Unit,
     onNavigateToPlanner: () -> Unit,
     onNavigateToProfile: () -> Unit,
+    onNavigateToQuizzes: () -> Unit,
     onNavigateToQuiz: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -41,15 +42,13 @@ fun HomeScreen(
                 title = {
                     Column {
                         Text(
-                            text = if (uiState.selectedLanguage == AppLanguage.URDU)
-                                "میرے نوٹس" else "Study Assistant",
+                            text = "Study Assistant",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                         uiState.currentUser?.name?.let { name ->
                             Text(
-                                text = if (uiState.selectedLanguage == AppLanguage.URDU)
-                                    "خوش آمدید، $name" else "Welcome, $name",
+                                text = "Welcome, $name",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                             )
@@ -57,11 +56,10 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    LanguageToggle(
-                        currentLanguage = uiState.selectedLanguage,
-                        onToggle = viewModel::toggleLanguage
-                    )
                     Spacer(Modifier.width(8.dp))
+                    IconButton(onClick = onNavigateToQuizzes) {
+                        Icon(Icons.Default.List, contentDescription = "Quizzes", modifier = Modifier.size(26.dp))
+                    }
                     IconButton(onClick = onNavigateToProfile) {
                         Icon(Icons.Default.AccountCircle, contentDescription = "Profile",
                             modifier = Modifier.size(30.dp))
@@ -76,10 +74,7 @@ fun HomeScreen(
             ExtendedFloatingActionButton(
                 onClick = onNavigateToUpload,
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = {
-                    Text(if (uiState.selectedLanguage == AppLanguage.URDU)
-                        "نوٹ شامل کریں" else "Add Note")
-                },
+                text = { Text("Add Note") },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = Color.White
             )
@@ -101,7 +96,6 @@ fun HomeScreen(
             // Quick action cards
             item {
                 QuickActionsRow(
-                    language = uiState.selectedLanguage,
                     onUpload = onNavigateToUpload,
                     onPlanner = onNavigateToPlanner
                 )
@@ -111,8 +105,7 @@ fun HomeScreen(
             if (uiState.weakAreas.isNotEmpty()) {
                 item {
                     WeakAreasSection(
-                        weakAreas = uiState.weakAreas,
-                        language = uiState.selectedLanguage
+                        weakAreas = uiState.weakAreas
                     )
                 }
             }
@@ -127,9 +120,7 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (uiState.selectedLanguage == AppLanguage.URDU)
-                            "میرے نوٹس (${uiState.notes.size})"
-                        else "My Notes (${uiState.notes.size})",
+                        text = "My Notes (${uiState.notes.size})",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -138,15 +129,12 @@ fun HomeScreen(
 
             // Loading
             if (uiState.isLoading) {
-                item { LoadingIndicator(
-                    message = if (uiState.selectedLanguage == AppLanguage.URDU)
-                        "نوٹس لوڈ ہو رہے ہیں..." else "Loading notes..."
-                )}
+                item { LoadingIndicator(message = "Loading notes...") }
             }
 
             // Empty state
             if (!uiState.isLoading && uiState.notes.isEmpty()) {
-                item { EmptyNotesState(language = uiState.selectedLanguage, onAdd = onNavigateToUpload) }
+                item { EmptyNotesState(onAdd = onNavigateToUpload) }
             }
 
             // Notes list
@@ -165,7 +153,6 @@ fun HomeScreen(
 
 @Composable
 private fun QuickActionsRow(
-    language: AppLanguage,
     onUpload: () -> Unit,
     onPlanner: () -> Unit
 ) {
@@ -176,16 +163,16 @@ private fun QuickActionsRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         QuickActionCard(
-            title = if (language == AppLanguage.URDU) "نوٹ اپلوڈ کریں" else "Upload Note",
-            subtitle = if (language == AppLanguage.URDU) "AI خلاصہ" else "AI Summary",
+            title = "Upload Note",
+            subtitle = "AI Summary",
             icon = Icons.Default.Upload,
             gradient = Brush.linearGradient(listOf(Color(0xFF6C63FF), Color(0xFF3B82F6))),
             onClick = onUpload,
             modifier = Modifier.weight(1f)
         )
         QuickActionCard(
-            title = if (language == AppLanguage.URDU) "مطالعہ منصوبہ" else "Study Planner",
-            subtitle = if (language == AppLanguage.URDU) "AI منصوبہ" else "AI Plan",
+            title = "Study Planner",
+            subtitle = "AI Plan",
             icon = Icons.Default.CalendarMonth,
             gradient = Brush.linearGradient(listOf(Color(0xFF1DB954), Color(0xFF0F6E56))),
             onClick = onPlanner,
@@ -230,10 +217,10 @@ private fun QuickActionCard(
 }
 
 @Composable
-private fun WeakAreasSection(weakAreas: List<WeakArea>, language: AppLanguage) {
+private fun WeakAreasSection(weakAreas: List<WeakArea>) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(
-            text = if (language == AppLanguage.URDU) "کمزور موضوعات" else "Weak Areas",
+            text = "Weak Areas",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
         )
@@ -247,7 +234,7 @@ private fun WeakAreasSection(weakAreas: List<WeakArea>, language: AppLanguage) {
 }
 
 @Composable
-private fun EmptyNotesState(language: AppLanguage, onAdd: () -> Unit) {
+private fun EmptyNotesState(onAdd: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -266,9 +253,7 @@ private fun EmptyNotesState(language: AppLanguage, onAdd: () -> Unit) {
                 tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
         }
         Text(
-            text = if (language == AppLanguage.URDU)
-                "ابھی تک کوئی نوٹس نہیں\nپہلا نوٹ شامل کریں!"
-            else "No notes yet!\nAdd your first note to get started.",
+            text = "No notes yet!\nAdd your first note to get started.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -279,7 +264,7 @@ private fun EmptyNotesState(language: AppLanguage, onAdd: () -> Unit) {
         ) {
             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text(if (language == AppLanguage.URDU) "نوٹ شامل کریں" else "Add Note")
+            Text("Add Note")
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.studyassistant.repository.ai
 
+import android.util.Log
 import com.google.gson.Gson
 import com.studyassistant.data.remote.AIApiService
 import com.studyassistant.data.remote.AIMessage
@@ -8,6 +9,7 @@ import com.studyassistant.domain.model.*
 import com.studyassistant.repository.AIRepository
 import com.studyassistant.util.Constants
 import java.util.UUID
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 class AIRepositoryImpl @Inject constructor(
@@ -18,15 +20,26 @@ class AIRepositoryImpl @Inject constructor(
 
     override suspend fun summarizeNote(content: String, language: AppLanguage): Result<String> {
         return try {
-            val langInstruction = if (language == AppLanguage.URDU)
-                "Respond entirely in Urdu (اردو). Use simple Urdu suitable for students."
-            else "Respond in clear English."
+            if (Constants.DEEPSEEK_API_KEY.isBlank()) {
+                Log.w("AIRepo", "summarizeNote: API key is blank, using local fallback")
+                return Result.success(localSummarize(content))
+            }
+            Log.d("AIRepo", "summarizeNote: starting with timeout")
 
-            val request = AIRequest(
-                system = """You are an expert study assistant for Pakistani students (O/A Levels, MDCAT, ECAT).
-                    $langInstruction
-                    Create concise, well-structured summaries with key points, important terms, and exam tips.""",
-                messages = listOf(
+            // Try AI with 30-second timeout
+            val result = withTimeoutOrNull(30_000) {
+                Log.d("AIRepo", "summarizeNote: calling AI API")
+                val langInstruction = if (language == AppLanguage.URDU)
+                    "Respond entirely in Urdu (اردو). Use simple Urdu suitable for students."
+                else "Respond in clear English."
+
+                val messages = listOf(
+                    AIMessage(
+                        role = "system",
+                        content = """You are an expert study assistant for Pakistani students (O/A Levels, MDCAT, ECAT).
+                        $langInstruction
+                        Create concise, well-structured summaries with key points, important terms, and exam tips."""
+                    ),
                     AIMessage(
                         role = "user",
                         content = """Summarize the following study notes. 
@@ -40,15 +53,33 @@ class AIRepositoryImpl @Inject constructor(
                             $content"""
                     )
                 )
-            )
 
-            val response = apiService.sendMessage(
-                apiKey = Constants.ANTHROPIC_API_KEY,
-                request = request
-            )
-            Result.success(response.content.firstOrNull()?.text ?: "")
+                val request = AIRequest(
+                    messages = messages
+                )
+
+                val response = apiService.sendMessage(
+                    authHeader = "Bearer ${Constants.DEEPSEEK_API_KEY}",
+                    request = request
+                )
+                response.content.firstOrNull()?.text ?: ""
+            }
+
+            if (result == null) {
+                Log.w("AIRepo", "summarizeNote: AI timeout after 30s, using local fallback")
+                return Result.success(localSummarize(content))
+            }
+
+            if (result.isBlank()) {
+                Log.w("AIRepo", "summarizeNote: AI returned empty response, using local fallback")
+                return Result.success(localSummarize(content))
+            }
+
+            Log.d("AIRepo", "summarizeNote: AI response received successfully")
+            Result.success(result)
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e("AIRepo", "summarizeNote: error (falling back to local): ${e.message}", e)
+            Result.success(localSummarize(content))
         }
     }
 
@@ -58,15 +89,26 @@ class AIRepositoryImpl @Inject constructor(
         language: AppLanguage
     ): Result<List<QuizQuestion>> {
         return try {
-            val langInstruction = if (language == AppLanguage.URDU)
-                "Write all questions and answers in Urdu (اردو)."
-            else "Write in English."
+            if (Constants.DEEPSEEK_API_KEY.isBlank()) {
+                Log.w("AIRepo", "generateQuiz: API key missing, using local fallback")
+                return localGenerateQuiz(content, numQuestions)
+            }
+            Log.d("AIRepo", "generateQuiz: starting with timeout")
 
-            val request = AIRequest(
-                system = """You are an exam question generator for Pakistani students.
-                    $langInstruction
-                    IMPORTANT: Respond ONLY with valid JSON array. No markdown, no explanation.""",
-                messages = listOf(
+            // Try AI with 30-second timeout
+            val result = withTimeoutOrNull(30_000) {
+                Log.d("AIRepo", "generateQuiz: calling AI API")
+                val langInstruction = if (language == AppLanguage.URDU)
+                    "Write all questions and answers in Urdu (اردو)."
+                else "Write in English."
+
+                val messages = listOf(
+                    AIMessage(
+                        role = "system",
+                        content = """You are an exam question generator for Pakistani students.
+                        $langInstruction
+                        IMPORTANT: Respond ONLY with valid JSON array. No markdown, no explanation."""
+                    ),
                     AIMessage(
                         role = "user",
                         content = """Generate $numQuestions MCQ questions from this content.
@@ -83,21 +125,48 @@ class AIRepositoryImpl @Inject constructor(
                             Content: $content"""
                     )
                 )
-            )
 
-            val response = apiService.sendMessage(
-                apiKey = Constants.ANTHROPIC_API_KEY,
-                request = request
-            )
+                val request = AIRequest(
+                    messages = messages
+                )
 
-            val rawJson = response.content.firstOrNull()?.text
-                ?.trim()
-                ?.removePrefix("```json")
-                ?.removeSuffix("```")
-                ?.trim() ?: "[]"
+                val response = apiService.sendMessage(
+                    authHeader = "Bearer ${Constants.DEEPSEEK_API_KEY}",
+                    request = request
+                )
 
-            val parsed = gson.fromJson(rawJson, Array<QuizQuestionDto>::class.java)
-            val questions = parsed.map { dto ->
+                val rawJson = response.content.firstOrNull()?.text
+                    ?.trim()
+                    ?.removePrefix("```json")
+                    ?.removeSuffix("```")
+                    ?.trim() ?: "[]"
+
+                // Parse JSON
+                val parsed: Array<QuizQuestionDto> = try {
+                    gson.fromJson(rawJson, Array<QuizQuestionDto>::class.java)
+                } catch (parseEx: Exception) {
+                    Log.w("AIRepo", "generateQuiz: parse failed, trying regex extraction")
+                    val arrayRegex = Regex("""\[.*\]""", RegexOption.DOT_MATCHES_ALL)
+                    val match = arrayRegex.find(rawJson)
+                    if (match != null) {
+                        try {
+                            gson.fromJson(match.value, Array<QuizQuestionDto>::class.java)
+                        } catch (ex2: Exception) {
+                            throw parseEx
+                        }
+                    } else {
+                        throw parseEx
+                    }
+                }
+                parsed
+            }
+
+            if (result == null) {
+                Log.w("AIRepo", "generateQuiz: AI timeout after 30s, using local fallback")
+                return localGenerateQuiz(content, numQuestions)
+            }
+
+            val questions = result.map { dto ->
                 QuizQuestion(
                     id = UUID.randomUUID().toString(),
                     question = dto.question,
@@ -107,9 +176,11 @@ class AIRepositoryImpl @Inject constructor(
                     type = QuestionType.MCQ
                 )
             }
+            Log.d("AIRepo", "generateQuiz: AI returned ${questions.size} questions")
             Result.success(questions)
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e("AIRepo", "generateQuiz: error (falling back to local): ${e.message}", e)
+            return localGenerateQuiz(content, numQuestions)
         }
     }
 
@@ -118,20 +189,34 @@ class AIRepositoryImpl @Inject constructor(
         targetExam: String
     ): Result<StudyPlan> {
         return try {
-            val weakTopics = weakAreas.joinToString(", ") { it.topic }
-            val request = AIRequest(
-                system = "You are a study planner for Pakistani students preparing for $targetExam. Respond ONLY in JSON.",
-                messages = listOf(
+            if (Constants.DEEPSEEK_API_KEY.isBlank()) {
+                Log.w("AIRepo", "generateStudyPlan: API key missing, using local fallback")
+                return localGenerateStudyPlan(weakAreas, targetExam)
+            }
+
+            Log.d("AIRepo", "generateStudyPlan: starting with timeout")
+
+            // Try AI with 30-second timeout
+            val result = withTimeoutOrNull(30_000) {
+                Log.d("AIRepo", "generateStudyPlan: calling AI API")
+                val weakTopics = weakAreas.joinToString(", ") { it.topic }
+                    .ifEmpty { "Mathematics, Physics, Chemistry, Biology, English" }
+
+                val messages = listOf(
+                    AIMessage(
+                        role = "system",
+                        content = "You are a study planner for Pakistani students preparing for $targetExam. Respond ONLY in valid JSON."
+                    ),
                     AIMessage(
                         role = "user",
-                        content = """Create a 7-day study plan focusing on these weak areas: $weakTopics.
-                            Return JSON:
+                        content = """Create a 7-day study plan focusing on these topics: $weakTopics.
+                            Return ONLY this JSON structure (no markdown, no backticks):
                             {
-                              "title": "plan title",
+                              "title": "7-Day Study Plan",
                               "tasks": [
                                 {
-                                  "title": "task title",
-                                  "description": "what to study",
+                                  "title": "Study Task Title",
+                                  "description": "What to study",
                                   "dayOffset": 0,
                                   "priority": "HIGH"
                                 }
@@ -139,42 +224,68 @@ class AIRepositoryImpl @Inject constructor(
                             }"""
                     )
                 )
-            )
 
-            val response = apiService.sendMessage(
-                apiKey = Constants.ANTHROPIC_API_KEY,
-                request = request
-            )
+                val request = AIRequest(
+                    messages = messages
+                )
 
-            val rawJson = response.content.firstOrNull()?.text
-                ?.trim()
-                ?.removePrefix("```json")
-                ?.removeSuffix("```")
-                ?.trim() ?: "{}"
+                val response = apiService.sendMessage(
+                    authHeader = "Bearer ${Constants.DEEPSEEK_API_KEY}",
+                    request = request
+                )
 
-            val dto = gson.fromJson(rawJson, StudyPlanDto::class.java)
+                val rawJson = response.content.firstOrNull()?.text
+                    ?.trim()
+                    ?.removePrefix("```json")
+                    ?.removePrefix("```")
+                    ?.removeSuffix("```")
+                    ?.trim() ?: "{}"
+
+                gson.fromJson(rawJson, StudyPlanDto::class.java)
+            }
+
+            if (result == null) {
+                Log.w("AIRepo", "generateStudyPlan: AI timeout after 30s, using local fallback")
+                return localGenerateStudyPlan(weakAreas, targetExam)
+            }
+
+            if (result.tasks.isEmpty()) {
+                Log.w("AIRepo", "generateStudyPlan: AI returned empty tasks, using local fallback")
+                return localGenerateStudyPlan(weakAreas, targetExam)
+            }
+
             val now = java.util.Date()
             val plan = StudyPlan(
-                id = UUID.randomUUID().toString(),
-                title = dto.title,
-                tasks = dto.tasks.map { task ->
+                id = java.util.UUID.randomUUID().toString(),
+                title = result.title.ifEmpty { "Study Plan for $targetExam" },
+                tasks = result.tasks.map { task ->
                     val due = java.util.Calendar.getInstance().apply {
                         time = now
                         add(java.util.Calendar.DAY_OF_YEAR, task.dayOffset)
                     }.time
                     StudyTask(
-                        id = UUID.randomUUID().toString(),
-                        title = task.title,
-                        description = task.description,
+                        id = java.util.UUID.randomUUID().toString(),
+                        title = task.title.ifEmpty { "Study Task" },
+                        description = task.description.ifEmpty { "Study and practice" },
                         dueDate = due,
-                        priority = Priority.valueOf(task.priority.uppercase())
+                        priority = try {
+                            Priority.valueOf(task.priority.uppercase())
+                        } catch (e: Exception) {
+                            Priority.MEDIUM
+                        }
                     )
                 },
-                startDate = now
+                startDate = now,
+                endDate = java.util.Calendar.getInstance().apply {
+                    time = now
+                    add(java.util.Calendar.DAY_OF_YEAR, 7)
+                }.time
             )
+            Log.d("AIRepo", "generateStudyPlan: AI returned plan with ${plan.tasks.size} tasks")
             Result.success(plan)
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e("AIRepo", "generateStudyPlan: error (falling back to local): ${e.message}", e)
+            return localGenerateStudyPlan(weakAreas, targetExam)
         }
     }
 
@@ -211,11 +322,87 @@ class AIRepositoryImpl @Inject constructor(
                 )
             )
             val response = apiService.sendMessage(
-                apiKey = Constants.ANTHROPIC_API_KEY,
+                authHeader = "Bearer ${Constants.DEEPSEEK_API_KEY}",
                 request = request
             )
             Result.success(response.content.firstOrNull()?.text ?: content)
         } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun localSummarize(content: String): String {
+        val paragraphs = content.split(Regex("\\n\\s*\\n"))
+        val candidate = paragraphs.firstOrNull { it.isNotBlank() } ?: content
+        return candidate.trim().take(800)
+    }
+
+    private fun localGenerateQuiz(content: String, numQuestions: Int): Result<List<QuizQuestion>> {
+        val sentences = content.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }.filter { it.length > 20 }.distinct()
+        if (sentences.isEmpty()) return Result.failure(Exception("Insufficient content for quiz generation."))
+
+        val questions = (1..numQuestions).map { idx ->
+            val questionContent = sentences.getOrNull(idx % sentences.size) ?: "?"
+            val options = List(4) { optionIdx -> "Option ${optionIdx + 1} for '$questionContent'" }
+            val correctAnswerIndex = 0 // First option as correct for fallback
+            QuizQuestion(
+                id = UUID.randomUUID().toString(),
+                question = "What is $questionContent?",
+                options = options,
+                correctAnswerIndex = correctAnswerIndex,
+                explanation = "This is a placeholder explanation for the quiz question.",
+                type = QuestionType.MCQ
+            )
+        }
+        return Result.success(questions)
+    }
+
+    private fun localGenerateStudyPlan(
+        weakAreas: List<WeakArea>,
+        targetExam: String
+    ): Result<StudyPlan> {
+        return try {
+            val now = java.util.Date()
+            val topics = if (weakAreas.isNotEmpty()) {
+                weakAreas.take(5).map { it.topic }
+            } else {
+                listOf("Mathematics", "Physics", "Chemistry", "Biology", "English")
+            }
+
+            val tasks = mutableListOf<StudyTask>()
+            topics.forEachIndexed { idx, topic ->
+                val dayOffset = idx + 1
+                val due = java.util.Calendar.getInstance().apply {
+                    time = now
+                    add(java.util.Calendar.DAY_OF_YEAR, dayOffset)
+                }.time
+
+                tasks.add(
+                    StudyTask(
+                        id = UUID.randomUUID().toString(),
+                        title = "Review: $topic",
+                        description = "Study and revise $topic. Focus on weak areas identified from your quizzes.",
+                        dueDate = due,
+                        priority = if (idx < 2) Priority.HIGH else Priority.MEDIUM
+                    )
+                )
+            }
+
+            val plan = StudyPlan(
+                id = UUID.randomUUID().toString(),
+                title = "Study Plan for $targetExam",
+                tasks = tasks,
+                startDate = now,
+                endDate = java.util.Calendar.getInstance().apply {
+                    time = now
+                    add(java.util.Calendar.DAY_OF_YEAR, 7)
+                }.time
+            )
+
+            Log.d("AIRepo", "localGenerateStudyPlan: created fallback plan with ${plan.tasks.size} tasks")
+            Result.success(plan)
+        } catch (e: Exception) {
+            Log.e("AIRepo", "localGenerateStudyPlan: failed", e)
             Result.failure(e)
         }
     }

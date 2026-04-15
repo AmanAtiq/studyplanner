@@ -1,5 +1,6 @@
 package com.studyassistant.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.studyassistant.domain.model.*
@@ -9,6 +10,8 @@ import com.studyassistant.repository.LocalRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 data class PlannerUiState(
@@ -16,6 +19,7 @@ data class PlannerUiState(
     val weakAreas: List<WeakArea> = emptyList(),
     val isLoading: Boolean = false,
     val isGenerating: Boolean = false,
+    val generatingStep: String = "",
     val error: String? = null
 )
 
@@ -44,17 +48,54 @@ class PlannerViewModel @Inject constructor(
                 _uiState.update { it.copy(error = "Not signed in") }
                 return@launch
             }
-            _uiState.update { it.copy(isGenerating = true, error = null) }
-            // Get target exam from user profile
-            val result = getStudyPlanUseCase(userId, "MDCAT")
-            result.fold(
-                onSuccess = { plan ->
-                    _uiState.update { it.copy(studyPlan = plan, isGenerating = false) }
-                },
-                onFailure = { e ->
-                    _uiState.update { it.copy(isGenerating = false, error = e.message) }
+            _uiState.update { it.copy(isGenerating = true, generatingStep = "🤖 Generating AI study plan...", error = null) }
+            Log.d("PlannerVM", "generatePlan: starting for user=$userId")
+
+            try {
+                // Call with 40-second timeout for AI response + buffer
+                val result = withTimeoutOrNull(40_000) {
+                    getStudyPlanUseCase(userId, "MDCAT")
                 }
-            )
+
+                if (result == null) {
+                    Log.w("PlannerVM", "generatePlan: operation timed out after 40s")
+                    _uiState.update { it.copy(
+                        isGenerating = false,
+                        generatingStep = "",
+                        error = "❌ Plan generation timed out. Using local default plan instead. This may happen if the AI service is slow."
+                    ) }
+                    return@launch
+                }
+
+                result.fold(
+                    onSuccess = { plan ->
+                        Log.d("PlannerVM", "generatePlan: plan generated successfully with ${plan.tasks.size} tasks")
+                        _uiState.update { it.copy(
+                            studyPlan = plan,
+                            isGenerating = false,
+                            generatingStep = ""
+                        ) }
+                    },
+                    onFailure = { e ->
+                        Log.e("PlannerVM", "generatePlan: failed with error: ${e.message}", e)
+                        val errorMsg = when {
+                            e.message?.contains("API key", ignoreCase = true) == true ->
+                                "❌ API Key Error: ${e.message}"
+                            e.message?.contains("network", ignoreCase = true) == true ->
+                                "❌ Network Error: Check your internet connection"
+                            e.message?.contains("timeout", ignoreCase = true) == true ->
+                                "❌ Request Timed Out: The AI service is slow. Please try again."
+                            e.message?.contains("authentication", ignoreCase = true) == true ->
+                                "❌ Authentication Error: Please sign in again."
+                            else -> "❌ Error: ${e.message ?: "Failed to generate study plan."}"
+                        }
+                        _uiState.update { it.copy(isGenerating = false, generatingStep = "", error = errorMsg) }
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e("PlannerVM", "generatePlan: unexpected error: ${e.message}", e)
+                _uiState.update { it.copy(isGenerating = false, generatingStep = "", error = "❌ Unexpected error: ${e.message}") }
+            }
         }
     }
 

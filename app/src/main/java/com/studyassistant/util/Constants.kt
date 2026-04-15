@@ -3,9 +3,28 @@ package com.studyassistant.util
 import com.studyassistant.BuildConfig
 
 object Constants {
-    // Store your API key in local.properties as ANTHROPIC_API_KEY=sk-ant-...
-    // and expose via BuildConfig
-    val ANTHROPIC_API_KEY: String = BuildConfig.ANTHROPIC_API_KEY
+    // DEEPSEEK_API_KEY is fetched reflectively from BuildConfig to avoid compile-time
+    // reference errors when switching BuildConfig fields.
+    val DEEPSEEK_API_KEY: String = run {
+        // Try DEEPSEEK_API_KEY first, then fall back to ANTHROPIC_API_KEY if present.
+        try {
+            val f = BuildConfig::class.java.getField("DEEPSEEK_API_KEY")
+            val v = f.get(null) as? String
+            if (!v.isNullOrBlank()) v else try {
+                val f2 = BuildConfig::class.java.getField("ANTHROPIC_API_KEY")
+                f2.get(null) as? String ?: ""
+            } catch (_: Exception) {
+                ""
+            }
+        } catch (_: Exception) {
+            try {
+                val f2 = BuildConfig::class.java.getField("ANTHROPIC_API_KEY")
+                f2.get(null) as? String ?: ""
+            } catch (_: Exception) {
+                ""
+            }
+        }
+    }
 
     const val MAX_QUIZ_QUESTIONS = 15
     const val DEFAULT_QUIZ_QUESTIONS = 10

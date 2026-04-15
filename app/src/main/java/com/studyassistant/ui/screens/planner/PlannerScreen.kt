@@ -1,6 +1,5 @@
 package com.studyassistant.ui.screens.planner
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -115,12 +114,18 @@ fun PlannerScreen(
 private fun GeneratePlanSection(
     isGenerating: Boolean,
     hasPlan: Boolean,
-    onGenerate: () -> Unit
+    onGenerate: () -> Unit,
+    generatingStep: String = ""
 ) {
-    Box(modifier = Modifier.padding(16.dp)) {
+    Column(
+        modifier = Modifier.padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         OutlinedButton(
             onClick = onGenerate,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
             shape = RoundedCornerShape(14.dp),
             enabled = !isGenerating,
             border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
@@ -128,7 +133,7 @@ private fun GeneratePlanSection(
             if (isGenerating) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 Spacer(Modifier.width(8.dp))
-                Text("AI is building your plan...")
+                Text("Building your plan...")
             } else {
                 Icon(Icons.Default.AutoAwesome, contentDescription = null,
                     modifier = Modifier.size(20.dp))
@@ -137,6 +142,44 @@ private fun GeneratePlanSection(
                     if (hasPlan) "Regenerate AI Plan" else "Generate AI Study Plan",
                     style = MaterialTheme.typography.titleSmall
                 )
+            }
+        }
+
+        // Show detailed step when generating
+        if (isGenerating && generatingStep.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            generatingStep,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Text(
+                        "This may take 1-3 minutes depending on your quiz history size.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                }
             }
         }
     }
