@@ -109,4 +109,5 @@ class UploadViewModel @Inject constructor(
 
     fun clearError() = _uiState.update { it.copy(error = null) }
     fun resetSuccess() = _uiState.update { it.copy(isSuccess = false, savedNoteId = null) }
+    fun updateNoteContent(content: String) = _uiState.update { it.copy(content = content) }
 }

@@ -3,7 +3,6 @@ package com.studyassistant.ui.screens.upload
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
-import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -114,29 +113,18 @@ fun UploadScreen(
         }
     )
 
-    val pdfLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
-        onResult = { uri: Uri? ->
-            uri?.let { selectedUri ->
-                coroutineScope.launch {
-                    val extracted = extractTextFromPdf(context, selectedUri)
-                    val bytes = readBytesFromUri(selectedUri)
-                    withContext(Dispatchers.Main) {
-                        if (extracted.isNotBlank()) {
-                            viewModel.onContentChange(extracted.trim())
-                        }
-                        selectedFileBytes = bytes
-                        val name = getFileNameFromUri(selectedUri) ?: selectedUri.lastPathSegment
-                        selectedFileName = name
-                        viewModel.setSelectedFile(selectedFileName, bytes?.size ?: 0)
-                        if (viewModel.uiState.value.title.isBlank()) {
-                            filenameToTitle(name)?.let { viewModel.onTitleChange(it) }
-                        }
-                    }
-                }
+    val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            coroutineScope.launch {
+                selectedFileBytes = readBytesFromUri(uri)
+                selectedFileName = getFileNameFromUri(uri)
+
+                // Pass `context` explicitly to `extractTextFromPdf`
+                val extractedText = extractTextFromPdf(context, uri)
+                viewModel.updateNoteContent(extractedText ?: "")
             }
         }
-    )
+    }
 
     Scaffold(
         topBar = {
@@ -146,7 +134,7 @@ fun UploadScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -174,7 +162,7 @@ fun UploadScreen(
                     Spacer(Modifier.width(8.dp))
                     Text("Pick Image (OCR)")
                 }
-                OutlinedButton(onClick = { pdfLauncher.launch("application/pdf") }, modifier = Modifier.weight(1f)) {
+                OutlinedButton(onClick = { pdfLauncher.launch(arrayOf("application/pdf")) }, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.PictureAsPdf, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text("Pick PDF")
@@ -317,36 +305,35 @@ suspend fun extractTextFromImage(context: android.content.Context, uri: Uri): St
     }
 }
 
-suspend fun extractTextFromPdf(context: android.content.Context, uri: Uri): String = withContext(Dispatchers.IO) {
-    var pfd: ParcelFileDescriptor? = null
-    val sb = StringBuilder()
-    try {
-        val fd = context.contentResolver.openFileDescriptor(uri, "r") ?: return@withContext ""
-        pfd = fd
-        val renderer = PdfRenderer(fd)
-        for (i in 0 until renderer.pageCount) {
-            val page = renderer.openPage(i)
-            val width = page.width
-            val height = page.height
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-            page.close()
+// Fix unresolved reference to `context` by ensuring it is correctly passed and used
+suspend fun extractTextFromPdf(context: android.content.Context, uri: Uri): String? = withContext(Dispatchers.IO) {
+    val fileDescriptor = context.contentResolver.openFileDescriptor(uri, "r") ?: return@withContext null
+    val pdfRenderer = PdfRenderer(fileDescriptor)
+    val stringBuilder = StringBuilder()
 
-            // Run OCR on page bitmap
-            val image = InputImage.fromBitmap(bitmap, 0)
-            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            val result = recognizer.process(image).awaitForMlKit()
-            sb.append(result.text)
-            sb.append("\n\n")
+    try {
+        for (pageIndex in 0 until pdfRenderer.pageCount) {
+            pdfRenderer.openPage(pageIndex).use { page ->
+                val width = page.width
+                val height = page.height
+                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+
+                // Use OCR to extract text from the rendered bitmap
+                val inputImage = InputImage.fromBitmap(bitmap, 0)
+                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                val result = recognizer.process(inputImage).awaitForMlKit()
+                stringBuilder.append(result.text).append("\n")
+            }
         }
-        renderer.close()
-        return@withContext sb.toString()
     } catch (e: Exception) {
         e.printStackTrace()
-        return@withContext ""
     } finally {
-        pfd?.close()
+        pdfRenderer.close()
+        fileDescriptor.close()
     }
+
+    return@withContext stringBuilder.toString()
 }
 
 // helper suspend bridge for ML Kit Task using suspendCancellableCoroutine

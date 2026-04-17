@@ -67,6 +67,11 @@ fun PlannerScreen(
             if (uiState.studyPlan != null) {
                 val plan = uiState.studyPlan!!
 
+                // DEBUG: Show plan source (AI or FALLBACK)
+                item {
+                    DebugSourceBanner(source = plan.source)
+                }
+
                 // Plan header
                 item {
                     PlanHeader(plan = plan)
@@ -363,3 +368,66 @@ private fun PlannerEmptyState(onGenerate: () -> Unit) {
         }
     }
 }
+
+@Composable
+private fun DebugSourceBanner(source: PlanSource) {
+    val (backgroundColor, borderColor, textColor, icon, label) = when (source) {
+        PlanSource.AI -> {
+            Tuple5(
+                Color(0xFF2E7D32).copy(alpha = 0.1f),  // Green
+                Color(0xFF2E7D32),
+                Color(0xFF1B5E20),
+                "✓ AI Generated",
+                "Generated using Gemini API (Optimized)"
+            )
+        }
+        PlanSource.FALLBACK -> {
+            Tuple5(
+                Color(0xFFF57C00).copy(alpha = 0.1f),  // Orange
+                Color(0xFFF57C00),
+                Color(0xFFE65100),
+                "⚠ Fallback Mode",
+                "Generated using local method (API unavailable)"
+            )
+        }
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(12.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = backgroundColor,
+        border = BorderStroke(1.5.dp, borderColor)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = icon,
+                style = MaterialTheme.typography.labelSmall,
+                color = textColor,
+                fontSize = 16.sp
+            )
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = textColor,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+}
+
+// Helper data class for tuple
+data class Tuple5<A, B, C, D, E>(val a: A, val b: B, val c: C, val d: D, val e: E)
