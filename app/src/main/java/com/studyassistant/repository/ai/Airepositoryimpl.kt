@@ -3,8 +3,11 @@ package com.studyassistant.repository.ai
 import android.util.Log
 import com.google.gson.Gson
 import com.studyassistant.data.remote.AIApiService
-import com.studyassistant.data.remote.AIMessage
-import com.studyassistant.data.remote.AIRequest
+import com.studyassistant.data.remote.GeminiContent
+import com.studyassistant.data.remote.GeminiGenerationConfig
+import com.studyassistant.data.remote.GeminiPart
+import com.studyassistant.data.remote.GeminiRequest
+import com.studyassistant.data.remote.firstTextOrEmpty
 import com.studyassistant.domain.model.*
 import com.studyassistant.repository.AIRepository
 import com.studyassistant.util.Constants
@@ -20,76 +23,72 @@ class AIRepositoryImpl @Inject constructor(
 
     override suspend fun summarizeNote(content: String, language: AppLanguage): Result<String> {
         return try {
-            if (Constants.DEEPSEEK_API_KEY.isBlank()) {
+            if (Constants.GEMINI_API_KEY.isBlank()) {
                 Log.w("AIRepo", "summarizeNote: API key is blank, using local fallback")
                 return Result.success(localSummarize(content))
             }
-            Log.d("AIRepo", "summarizeNote: starting with timeout")
 
-            // Try AI with 30-second timeout
             val result = withTimeoutOrNull(30_000) {
-                Log.d("AIRepo", "summarizeNote: calling AI API")
                 val langInstruction = if (language == AppLanguage.URDU)
                     "Respond entirely in Urdu (اردو). Use simple Urdu suitable for students."
                 else "Respond in clear English."
 
-                val messages = listOf(
-                    AIMessage(
-                        role = "system",
-                        content = """You are an expert study assistant for Pakistani students (O/A Levels, MDCAT, ECAT).
-                        $langInstruction
-                        Create concise, well-structured summaries with key points, important terms, and exam tips."""
-                    ),
-                    AIMessage(
-                        role = "user",
-                        content = """Summarize the following study notes. 
-                            Include: 
-                            1. Main concepts (bullet points)
-                            2. Key definitions
-                            3. Important formulas or dates (if any)
-                            4. 2-3 exam tips
-                            
-                            Notes:
-                            $content"""
+                val response = apiService.generateContent(
+                    model = Constants.GEMINI_MODEL,
+                    apiKey = Constants.GEMINI_API_KEY,
+                    request = GeminiRequest(
+                        systemInstruction = GeminiContent(
+                            parts = listOf(
+                                GeminiPart(
+                                    text = """You are an expert study assistant for Pakistani students (O/A Levels, MDCAT, ECAT).
+                                    $langInstruction
+                                    Create concise, well-structured summaries with key points, important terms, and exam tips.""".trimIndent()
+                                )
+                            )
+                        ),
+                        contents = listOf(
+                            GeminiContent(
+                                role = "user",
+                                parts = listOf(
+                                    GeminiPart(text = "Summarize the following study notes:\n\n$content")
+                                )
+                            )
+                        ),
+                        generationConfig = GeminiGenerationConfig(
+                            maxOutputTokens = 1200,
+                            temperature = 0.5
+                        )
                     )
                 )
 
-                val request = AIRequest(
-                    messages = messages
-                )
+                val rawText = response.firstTextOrEmpty()
 
-                val response = apiService.sendMessage(
-                    authHeader = "Bearer ${Constants.DEEPSEEK_API_KEY}",
-                    request = request
-                )
-                response.content.firstOrNull()?.text ?: ""
+                // CLEANING LOGIC: Removes markdown wrappers that make the UI look "weird"
+                rawText.trim()
+                    .removePrefix("```markdown")
+                    .removePrefix("```")
+                    .removeSuffix("```")
+                    .trim()
             }
 
-            if (result == null) {
-                Log.w("AIRepo", "summarizeNote: AI timeout after 30s, using local fallback")
+            if (result.isNullOrBlank()) {
+                Log.w("AIRepo", "summarizeNote: AI empty or timeout, using local fallback")
                 return Result.success(localSummarize(content))
             }
 
-            if (result.isBlank()) {
-                Log.w("AIRepo", "summarizeNote: AI returned empty response, using local fallback")
-                return Result.success(localSummarize(content))
-            }
-
-            Log.d("AIRepo", "summarizeNote: AI response received successfully")
             Result.success(result)
         } catch (e: Exception) {
-            Log.e("AIRepo", "summarizeNote: error (falling back to local): ${e.message}", e)
+            Log.e("AIRepo", "summarizeNote error: ${e.message}")
             Result.success(localSummarize(content))
         }
     }
-
     override suspend fun generateQuiz(
         content: String,
         numQuestions: Int,
         language: AppLanguage
     ): Result<List<QuizQuestion>> {
         return try {
-            if (Constants.DEEPSEEK_API_KEY.isBlank()) {
+            if (Constants.GEMINI_API_KEY.isBlank()) {
                 Log.w("AIRepo", "generateQuiz: API key missing, using local fallback")
                 return localGenerateQuiz(content, numQuestions)
             }
@@ -102,40 +101,49 @@ class AIRepositoryImpl @Inject constructor(
                     "Write all questions and answers in Urdu (اردو)."
                 else "Write in English."
 
-                val messages = listOf(
-                    AIMessage(
-                        role = "system",
-                        content = """You are an exam question generator for Pakistani students.
-                        $langInstruction
-                        IMPORTANT: Respond ONLY with valid JSON array. No markdown, no explanation."""
-                    ),
-                    AIMessage(
-                        role = "user",
-                        content = """Generate $numQuestions MCQ questions from this content.
-                            Return JSON array with this exact structure:
-                            [
-                              {
-                                "question": "question text",
-                                "options": ["A", "B", "C", "D"],
-                                "correctAnswerIndex": 0,
-                                "explanation": "why this is correct"
-                              }
-                            ]
-                            
-                            Content: $content"""
+                val response = apiService.generateContent(
+                    model = Constants.GEMINI_MODEL,
+                    apiKey = Constants.GEMINI_API_KEY,
+                    request = GeminiRequest(
+                        systemInstruction = GeminiContent(
+                            parts = listOf(
+                                GeminiPart(
+                                    text = """You are an exam question generator for Pakistani students.
+                                    $langInstruction
+                                    IMPORTANT: Respond ONLY with valid JSON array. No markdown, no explanation.""".trimIndent()
+                                )
+                            )
+                        ),
+                        contents = listOf(
+                            GeminiContent(
+                                role = "user",
+                                parts = listOf(
+                                    GeminiPart(
+                                        text = """Generate $numQuestions MCQ questions from this content.
+                                            Return JSON array with this exact structure:
+                                            [
+                                              {
+                                                "question": "question text",
+                                                "options": ["A", "B", "C", "D"],
+                                                "correctAnswerIndex": 0,
+                                                "explanation": "why this is correct"
+                                              }
+                                            ]
+
+                                            Content: $content""".trimIndent()
+                                    )
+                                )
+                            )
+                        ),
+                        generationConfig = GeminiGenerationConfig(
+                            maxOutputTokens = 2048,
+                            temperature = 0.4,
+                            responseMimeType = "application/json"
+                        )
                     )
                 )
 
-                val request = AIRequest(
-                    messages = messages
-                )
-
-                val response = apiService.sendMessage(
-                    authHeader = "Bearer ${Constants.DEEPSEEK_API_KEY}",
-                    request = request
-                )
-
-                val rawJson = response.content.firstOrNull()?.text
+                val rawJson = response.firstTextOrEmpty()
                     ?.trim()
                     ?.removePrefix("```json")
                     ?.removeSuffix("```")
@@ -189,7 +197,7 @@ class AIRepositoryImpl @Inject constructor(
         targetExam: String
     ): Result<StudyPlan> {
         return try {
-            if (Constants.DEEPSEEK_API_KEY.isBlank()) {
+            if (Constants.GEMINI_API_KEY.isBlank()) {
                 Log.w("AIRepo", "generateStudyPlan: API key missing, using local fallback")
                 return localGenerateStudyPlan(weakAreas, targetExam)
             }
@@ -202,39 +210,48 @@ class AIRepositoryImpl @Inject constructor(
                 val weakTopics = weakAreas.joinToString(", ") { it.topic }
                     .ifEmpty { "Mathematics, Physics, Chemistry, Biology, English" }
 
-                val messages = listOf(
-                    AIMessage(
-                        role = "system",
-                        content = "You are a study planner for Pakistani students preparing for $targetExam. Respond ONLY in valid JSON."
-                    ),
-                    AIMessage(
-                        role = "user",
-                        content = """Create a 7-day study plan focusing on these topics: $weakTopics.
-                            Return ONLY this JSON structure (no markdown, no backticks):
-                            {
-                              "title": "7-Day Study Plan",
-                              "tasks": [
-                                {
-                                  "title": "Study Task Title",
-                                  "description": "What to study",
-                                  "dayOffset": 0,
-                                  "priority": "HIGH"
-                                }
-                              ]
-                            }"""
+                val response = apiService.generateContent(
+                    model = Constants.GEMINI_MODEL,
+                    apiKey = Constants.GEMINI_API_KEY,
+                    request = GeminiRequest(
+                        systemInstruction = GeminiContent(
+                            parts = listOf(
+                                GeminiPart(
+                                    text = "You are a study planner for Pakistani students preparing for $targetExam. Respond ONLY in valid JSON."
+                                )
+                            )
+                        ),
+                        contents = listOf(
+                            GeminiContent(
+                                role = "user",
+                                parts = listOf(
+                                    GeminiPart(
+                                        text = """Create a 7-day study plan focusing on these topics: $weakTopics.
+                                            Return ONLY this JSON structure (no markdown, no backticks):
+                                            {
+                                              "title": "7-Day Study Plan",
+                                              "tasks": [
+                                                {
+                                                  "title": "Study Task Title",
+                                                  "description": "What to study",
+                                                  "dayOffset": 0,
+                                                  "priority": "HIGH"
+                                                }
+                                              ]
+                                            }""".trimIndent()
+                                    )
+                                )
+                            )
+                        ),
+                        generationConfig = GeminiGenerationConfig(
+                            maxOutputTokens = 2048,
+                            temperature = 0.3,
+                            responseMimeType = "application/json"
+                        )
                     )
                 )
 
-                val request = AIRequest(
-                    messages = messages
-                )
-
-                val response = apiService.sendMessage(
-                    authHeader = "Bearer ${Constants.DEEPSEEK_API_KEY}",
-                    request = request
-                )
-
-                val rawJson = response.content.firstOrNull()?.text
+                val rawJson = response.firstTextOrEmpty()
                     ?.trim()
                     ?.removePrefix("```json")
                     ?.removePrefix("```")
@@ -312,20 +329,30 @@ class AIRepositoryImpl @Inject constructor(
 
     override suspend fun translateContent(content: String, targetLanguage: AppLanguage): Result<String> {
         return try {
+            if (Constants.GEMINI_API_KEY.isBlank()) return Result.success(content)
+
             val lang = if (targetLanguage == AppLanguage.URDU) "Urdu (اردو)" else "English"
-            val request = AIRequest(
-                messages = listOf(
-                    AIMessage(
-                        role = "user",
-                        content = "Translate the following study content to $lang. Keep formatting intact:\n\n$content"
+            val response = apiService.generateContent(
+                model = Constants.GEMINI_MODEL,
+                apiKey = Constants.GEMINI_API_KEY,
+                request = GeminiRequest(
+                    contents = listOf(
+                        GeminiContent(
+                            role = "user",
+                            parts = listOf(
+                                GeminiPart(
+                                    text = "Translate the following study content to $lang. Keep formatting intact:\n\n$content"
+                                )
+                            )
+                        )
+                    ),
+                    generationConfig = GeminiGenerationConfig(
+                        maxOutputTokens = 1800,
+                        temperature = 0.2
                     )
                 )
             )
-            val response = apiService.sendMessage(
-                authHeader = "Bearer ${Constants.DEEPSEEK_API_KEY}",
-                request = request
-            )
-            Result.success(response.content.firstOrNull()?.text ?: content)
+            Result.success(response.firstTextOrEmpty().ifEmpty { content })
         } catch (e: Exception) {
             Result.failure(e)
         }

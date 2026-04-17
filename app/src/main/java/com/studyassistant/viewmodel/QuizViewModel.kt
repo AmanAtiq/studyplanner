@@ -19,6 +19,7 @@ data class QuizUiState(
     val isAnswerRevealed: Boolean = false,
     val isLoading: Boolean = false,
     val isFinished: Boolean = false,
+    val isReviewMode: Boolean = false,
     val score: Int = 0,
     val language: AppLanguage = AppLanguage.ENGLISH,
     val error: String? = null
@@ -34,9 +35,21 @@ class QuizViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(QuizUiState())
     val uiState: StateFlow<QuizUiState> = _uiState.asStateFlow()
 
-    fun loadQuiz(noteId: String) {
+    fun loadQuiz(noteId: String, forceRefresh: Boolean = false) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update {
+                it.copy(
+                    quiz = null,
+                    currentQuestionIndex = 0,
+                    selectedAnswerIndex = -1,
+                    isAnswerRevealed = false,
+                    isLoading = true,
+                    isFinished = false,
+                    isReviewMode = false,
+                    score = 0,
+                    error = null
+                )
+            }
             val lang = localRepository.getLanguagePreference()
             val note = localRepository.getCachedNoteById(noteId)
                 ?: run {
@@ -49,16 +62,32 @@ class QuizViewModel @Inject constructor(
 
             // Check if a quiz already exists in local cache for this note
             val cachedQuizzes = localRepository.getCachedQuizzes().first()
-            val existing = cachedQuizzes.find { it.noteId == noteId }
+            val existing = if (forceRefresh) null else cachedQuizzes.find { it.noteId == noteId }
             if (existing != null) {
-                _uiState.update { it.copy(quiz = existing, isLoading = false, language = lang) }
+                _uiState.update {
+                    it.copy(
+                        quiz = existing,
+                        isLoading = false,
+                        language = lang,
+                        score = existing.score,
+                        isReviewMode = existing.completed
+                    )
+                }
                 return@launch
             }
 
             val result = generateQuizUseCase(note, language = lang)
             result.fold(
                 onSuccess = { quiz ->
-                    _uiState.update { it.copy(quiz = quiz, isLoading = false, language = lang) }
+                    _uiState.update {
+                        it.copy(
+                            quiz = quiz,
+                            isLoading = false,
+                            language = lang,
+                            score = 0,
+                            isReviewMode = false
+                        )
+                    }
                 },
                 onFailure = { e ->
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
@@ -68,23 +97,33 @@ class QuizViewModel @Inject constructor(
     }
 
     fun selectAnswer(index: Int) {
-        if (_uiState.value.isAnswerRevealed) return
+        val state = _uiState.value
+        if (state.isAnswerRevealed || state.isFinished || state.isReviewMode) return
         _uiState.update { it.copy(selectedAnswerIndex = index) }
     }
 
     fun revealAnswer() {
         val state = _uiState.value
-        if (state.selectedAnswerIndex == -1) return
+        if (state.selectedAnswerIndex == -1 || state.isReviewMode || state.isFinished) return
         val question = state.quiz?.questions?.getOrNull(state.currentQuestionIndex) ?: return
         val isCorrect = state.selectedAnswerIndex == question.correctAnswerIndex
-        _uiState.update { it.copy(
-            isAnswerRevealed = true,
-            score = if (isCorrect) it.score + 1 else it.score
-        )}
+        val updatedQuiz = state.quiz?.copy(
+            questions = state.quiz.questions.mapIndexed { index, item ->
+                if (index == state.currentQuestionIndex) item.copy(selectedAnswerIndex = state.selectedAnswerIndex) else item
+            }
+        )
+        _uiState.update {
+            it.copy(
+                quiz = updatedQuiz,
+                isAnswerRevealed = true,
+                score = if (isCorrect) it.score + 1 else it.score
+            )
+        }
     }
 
     fun nextQuestion() {
         val state = _uiState.value
+        if (state.isReviewMode || state.isFinished) return
         val total = state.quiz?.questions?.size ?: 0
         if (state.currentQuestionIndex + 1 >= total) {
             finishQuiz()
@@ -104,7 +143,7 @@ class QuizViewModel @Inject constructor(
             val completed = quiz.copy(score = state.score, completed = true)
             firebaseRepository.saveQuiz(completed)
             localRepository.cacheQuiz(completed)
-            _uiState.update { it.copy(isFinished = true) }
+            _uiState.update { it.copy(quiz = completed, isFinished = true) }
         }
     }
 

@@ -221,15 +221,15 @@ fun UploadScreen(
             // AI Info card
             AISummaryInfoCard()
 
-            // Visible warning if Deepseek API key not set (local fallback will be used)
-            if (Constants.DEEPSEEK_API_KEY.isBlank()) {
+            // Visible warning if Gemini API key not set (local fallback will be used)
+            if (Constants.GEMINI_API_KEY.isBlank()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("AI key not configured — using local fallback (no external AI).", color = MaterialTheme.colorScheme.onErrorContainer)
-                        Text("To enable real AI summaries/quizzes, add DEEPSEEK_API_KEY to local.properties.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        Text("To enable real AI summaries/quizzes, add GEMINI_API_KEY to local.properties.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
                     }
                 }
             }
@@ -268,7 +268,7 @@ fun UploadScreen(
                 }
             }
 
-            // Success area: show Take Quiz button explicitly so user can navigate when ready
+            // Success area: show explicit button to open the saved summary.
             if (uiState.isSuccess) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -277,18 +277,18 @@ fun UploadScreen(
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Saved successfully", style = MaterialTheme.typography.titleMedium)
-                        uiState.generatedQuizNoteId?.let { quizId ->
-                            Text("Quiz generated for note: ${quizId}", style = MaterialTheme.typography.bodySmall)
+                        uiState.savedNoteId?.let { noteId ->
+                            Text("Summary saved for note: ${noteId}", style = MaterialTheme.typography.bodySmall)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = { onUploadSuccess(quizId) }) {
-                                    Text("Take Quiz")
+                                Button(onClick = { onUploadSuccess(noteId) }) {
+                                    Text("Open Summary")
                                 }
                                 OutlinedButton(onClick = { viewModel.resetSuccess() }) {
                                     Text("Close")
                                 }
                             }
                         } ?: run {
-                            Text("Note saved but quiz not available.", style = MaterialTheme.typography.bodySmall)
+                            Text("Note saved and summary generated.", style = MaterialTheme.typography.bodySmall)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { viewModel.resetSuccess() }) {
                                     Text("Done")

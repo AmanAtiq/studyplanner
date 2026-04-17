@@ -31,6 +31,7 @@ fun HomeScreen(
     onNavigateToPlanner: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToQuizzes: () -> Unit,
+    onNavigateToNoteDetail: (String) -> Unit,
     onNavigateToQuiz: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -141,7 +142,7 @@ fun HomeScreen(
             items(uiState.notes, key = { it.id }) { note ->
                 NoteCard(
                     note = note,
-                    onTap = { onNavigateToQuiz(note.id) },
+                    onTap = { onNavigateToNoteDetail(note.id) },
                     onDelete = { viewModel.deleteNote(note.id) },
                     onQuiz = { onNavigateToQuiz(note.id) },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)

@@ -20,8 +20,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val localProps = com.android.build.gradle.internal.cxx.configure.gradleLocalProperties(rootDir, providers)
-        // API key for Deepseek (free alternative) — set DEEPSEEK_API_KEY in local.properties
-        buildConfigField("String", "DEEPSEEK_API_KEY", "\"${localProps.getProperty("DEEPSEEK_API_KEY", "")}\"")
+        val geminiKey = localProps.getProperty("GEMINI_API_KEY", localProps.getProperty("DEEPSEEK_API_KEY", ""))
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
     }
 
     buildTypes {
@@ -61,6 +61,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.material3:material3:1.2.1")
     implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("com.google.android.material:material:1.12.0")
     implementation("com.google.dagger:hilt-android:2.50")
     kapt("com.google.dagger:hilt-android-compiler:2.50")

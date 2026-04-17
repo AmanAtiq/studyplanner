@@ -4,12 +4,9 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.studyassistant.domain.model.*
-import com.studyassistant.domain.usecase.GenerateQuizUseCase
 import com.studyassistant.domain.usecase.SummarizeNoteUseCase
 import com.studyassistant.domain.usecase.UploadNoteUseCase
 import com.studyassistant.repository.FirebaseRepository
-import com.studyassistant.repository.LocalRepository
-import com.studyassistant.util.Constants
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -23,7 +20,7 @@ data class UploadUiState(
     val isUploading: Boolean = false,
     val isSummarizing: Boolean = false,
     val isSuccess: Boolean = false,
-    val generatedQuizNoteId: String? = null,
+    val savedNoteId: String? = null,
     val selectedFileName: String? = null,
     val selectedFileBytesSize: Int = 0,
     val error: String? = null
@@ -33,9 +30,7 @@ data class UploadUiState(
 class UploadViewModel @Inject constructor(
     private val uploadNoteUseCase: UploadNoteUseCase,
     private val summarizeNoteUseCase: SummarizeNoteUseCase,
-    private val generateQuizUseCase: GenerateQuizUseCase,
-    private val firebaseRepository: FirebaseRepository,
-    private val localRepository: LocalRepository
+    private val firebaseRepository: FirebaseRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(UploadUiState())
@@ -46,9 +41,8 @@ class UploadViewModel @Inject constructor(
     fun setSelectedFile(name: String?, bytesSize: Int) = _uiState.update { it.copy(selectedFileName = name, selectedFileBytesSize = bytesSize) }
 
     /**
-     * Upload note with optional file data. After saving the note, run summarization, then
-     * generate a quiz from the note content (summary or original) and save the quiz.
-     * When quiz generation completes, set generatedQuizId which UI can use to navigate to quiz screen.
+        * Upload note with optional file data, then summarize and save the note locally.
+        * Quiz generation is now user-driven from the note detail screen.
      */
     fun uploadNote(fileBytes: ByteArray? = null, fileName: String? = null) {
         val state = _uiState.value
@@ -95,54 +89,14 @@ class UploadViewModel @Inject constructor(
                         onSuccess = { summarized ->
                             _uiState.update { it.copy(
                                 summary = summarized.summary,
-                                isSummarizing = false
+                                isSummarizing = false,
+                                isSuccess = true,
+                                savedNoteId = summarized.id
                             )}
-
-                            // Now generate quiz from the summarized content with timeout
-                            val quizResult = withTimeoutOrNull(90_000) {
-                                generateQuizUseCase(note.copy(summary = summarized.summary), numQuestions = Constants.DEFAULT_QUIZ_QUESTIONS, language = AppLanguage.ENGLISH)
-                            } ?: Result.failure(Exception("Quiz generation timed out"))
-
-                            quizResult.fold(
-                                onSuccess = { quiz ->
-                                    // Save quiz with timeout
-                                    val saveRes = withTimeoutOrNull(30_000) { firebaseRepository.saveQuiz(quiz) }
-                                        ?: Result.failure(Exception("Saving quiz timed out"))
-                                    if (saveRes.isSuccess) {
-                                        localRepository.cacheQuiz(quiz)
-                                        _uiState.update { it.copy(isSuccess = true, generatedQuizNoteId = quiz.noteId) }
-                                    } else {
-                                        _uiState.update { it.copy(isSuccess = true, error = "Note saved and summarized, but saving quiz failed: ${saveRes.exceptionOrNull()?.message}") }
-                                    }
-                                },
-                                onFailure = { e ->
-                                    _uiState.update { it.copy(isSuccess = true, error = "Note saved, summary done, but quiz generation failed: ${e.message}") }
-                                }
-                            )
                         },
                         onFailure = { e ->
-                            // Note saved but summary failed. Still attempt to generate quiz from original content
                             _uiState.update { it.copy(isSummarizing = false) }
-
-                            val quizResult = withTimeoutOrNull(60_000) {
-                                generateQuizUseCase(note, numQuestions = Constants.DEFAULT_QUIZ_QUESTIONS, language = AppLanguage.ENGLISH)
-                            } ?: Result.failure(Exception("Quiz generation timed out"))
-
-                            quizResult.fold(
-                                onSuccess = { quiz ->
-                                    val saveRes = withTimeoutOrNull(30_000) { firebaseRepository.saveQuiz(quiz) }
-                                        ?: Result.failure(Exception("Saving quiz timed out"))
-                                    if (saveRes.isSuccess) {
-                                        localRepository.cacheQuiz(quiz)
-                                        _uiState.update { it.copy(isSuccess = true, generatedQuizNoteId = quiz.noteId) }
-                                    } else {
-                                        _uiState.update { it.copy(isSuccess = true, error = "Note saved, but summarization and quiz saving failed: ${e.message}; ${saveRes.exceptionOrNull()?.message}") }
-                                    }
-                                },
-                                onFailure = { e2 ->
-                                    _uiState.update { it.copy(isSuccess = true, error = "Note saved, but summarization and quiz generation failed: ${e.message}; ${e2.message}") }
-                                }
-                            )
+                            _uiState.update { it.copy(isSuccess = true, error = e.message, savedNoteId = note.id) }
                         }
                     )
                 },
@@ -154,5 +108,5 @@ class UploadViewModel @Inject constructor(
     }
 
     fun clearError() = _uiState.update { it.copy(error = null) }
-    fun resetSuccess() = _uiState.update { it.copy(isSuccess = false, generatedQuizNoteId = null) }
+    fun resetSuccess() = _uiState.update { it.copy(isSuccess = false, savedNoteId = null) }
 }

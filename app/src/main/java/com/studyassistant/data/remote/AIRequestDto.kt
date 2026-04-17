@@ -1,25 +1,25 @@
 package com.studyassistant.data.remote
 
 import com.google.gson.annotations.SerializedName
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.Body
-import retrofit2.http.POST
-import retrofit2.http.Header
-import java.util.concurrent.TimeUnit
 
-// ── DTOs ──────────────────────────────────────────────
-data class AIMessage(
-    val role: String,
-    val content: String
+data class GeminiRequest(
+    val contents: List<GeminiContent>,
+    @SerializedName("systemInstruction") val systemInstruction: GeminiContent? = null,
+    @SerializedName("generationConfig") val generationConfig: GeminiGenerationConfig? = null
 )
 
-data class AIRequest(
-    val model: String = "deepseek-chat",
-    @SerializedName("max_tokens") val maxTokens: Int = 2048,
-    val messages: List<AIMessage>,
-    val temperature: Double = 0.7
+data class GeminiContent(
+    val role: String? = null,
+    val parts: List<GeminiPart> = emptyList()
+)
+
+data class GeminiPart(
+    val text: String = ""
+)
+
+data class GeminiGenerationConfig(
+    @SerializedName("maxOutputTokens") val maxOutputTokens: Int? = null,
+    val temperature: Double? = null,
+    @SerializedName("responseMimeType") val responseMimeType: String? = null
 )
 

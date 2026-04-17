@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "22334162419",
-    "project_id": "aistudenthelper-1ca6b",
-    "storage_bucket": "aistudenthelper-1ca6b.firebasestorage.app"
+    "project_number": "333306803602",
+    "project_id": "aistudyplanner-a287a",
+    "storage_bucket": "aistudyplanner-a287a.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:22334162419:android:6e951df797e513cb883e86",
+        "mobilesdk_app_id": "1:333306803602:android:24daacc97ccb3a3ba93d4b",
         "android_client_info": {
           "package_name": "com.studyassistant"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyB4PIT5SxN0_VYRpC5NtbxpXvpNkB1MEnE"
+          "current_key": "AIzaSyBqP0nA-QsmgvibeCWLev4gJKq5mJHOa4Y"
         }
       ],
       "services": {

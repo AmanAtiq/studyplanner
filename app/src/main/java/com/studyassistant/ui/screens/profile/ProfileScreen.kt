@@ -100,7 +100,7 @@ fun ProfileScreen(
 
             // Stats
             StatsSection(
-                quizCount = uiState.quizHistory.size,
+                quizCount = uiState.quizHistory.count { it.completed },
                 avgScore = viewModel.averageScore()
             )
 
@@ -178,7 +178,7 @@ private fun StatsSection(quizCount: Int, avgScore: Int) {
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         StatCard(
-            label = "Quizzes Taken",
+            label = "Completed Quizzes",
             value = "$quizCount",
             icon = Icons.Default.Quiz,
             modifier = Modifier.weight(1f)

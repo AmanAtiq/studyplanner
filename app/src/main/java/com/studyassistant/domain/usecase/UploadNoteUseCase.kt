@@ -21,6 +21,9 @@ class UploadNoteUseCase @Inject constructor(
         var fileUrl = ""
         if (fileBytes != null && fileName != null) {
             val uploadResult = firebaseRepository.uploadFile(userId, fileBytes, fileName)
+            if (uploadResult.isFailure) {
+                return Result.failure(uploadResult.exceptionOrNull() ?: Exception("File upload failed"))
+            }
             fileUrl = uploadResult.getOrDefault("")
         }
 

@@ -4,6 +4,8 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -18,7 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.studyassistant.domain.model.AppLanguage
+import com.studyassistant.domain.model.*
 import com.studyassistant.ui.components.*
 import com.studyassistant.ui.theme.*
 import com.studyassistant.viewmodel.QuizViewModel
@@ -28,13 +30,16 @@ import com.studyassistant.viewmodel.QuizViewModel
 @Composable
 fun QuizScreen(
     noteId: String,
+    forceRefresh: Boolean = false,
     onBack: () -> Unit,
     onFinish: (score: Int, total: Int) -> Unit,
     viewModel: QuizViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val quiz = uiState.quiz
+    val isReviewMode = quiz?.completed == true && uiState.isReviewMode
 
-    LaunchedEffect(noteId) { viewModel.loadQuiz(noteId) }
+    LaunchedEffect(noteId, forceRefresh) { viewModel.loadQuiz(noteId, forceRefresh) }
 
     LaunchedEffect(uiState.isFinished) {
         if (uiState.isFinished) {
@@ -47,11 +52,15 @@ fun QuizScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    val total = uiState.quiz?.questions?.size ?: 0
+                    val total = quiz?.questions?.size ?: 0
                     val current = uiState.currentQuestionIndex + 1
                     Text(
-                        if (uiState.language == AppLanguage.URDU)
-                            "سوال $current / $total" else "Question $current / $total",
+                        if (isReviewMode) {
+                            if (uiState.language == AppLanguage.URDU) "مکمل کوئز" else "Quiz Review"
+                        } else {
+                            if (uiState.language == AppLanguage.URDU)
+                                "سوال $current / $total" else "Question $current / $total"
+                        },
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -84,14 +93,23 @@ fun QuizScreen(
                     }
                 }
             }
-            uiState.quiz != null -> {
-                val quiz = uiState.quiz!!
-                val question = quiz.questions.getOrNull(uiState.currentQuestionIndex)
-                if (question != null) {
+            quiz != null -> {
+                if (isReviewMode) {
+                    QuizReviewContent(
+                        quiz = quiz,
+                        onBack = onBack,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                    )
+                } else {
+                    val question = quiz.questions.getOrNull(uiState.currentQuestionIndex)
+                    if (question != null) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(padding)
+                            .verticalScroll(rememberScrollState())
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
@@ -159,8 +177,6 @@ fun QuizScreen(
                             )
                         }
 
-                        Spacer(Modifier.weight(1f))
-
                         // Explanation
                         AnimatedVisibility(
                             visible = uiState.isAnswerRevealed && question.explanation.isNotEmpty()
@@ -209,6 +225,192 @@ fun QuizScreen(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+}
+
+@Composable
+private fun QuizReviewContent(
+    quiz: Quiz,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val total = quiz.questions.size
+    val percentage = if (total > 0) (quiz.score * 100) / total else 0
+    val scoreColor = when {
+        percentage >= 70 -> StrongAreaGreen
+        percentage >= 50 -> WarningAmber
+        else -> WeakAreaRed
+    }
+
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Card(
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            elevation = CardDefaults.cardElevation(0.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Completed Attempt", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text("${quiz.score}/$total correct", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = scoreColor)
+                Text("${percentage}% score", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            StatCard(
+                label = "Correct",
+                value = "${quiz.score}",
+                icon = Icons.Default.CheckCircle,
+                tint = StrongAreaGreen,
+                modifier = Modifier.weight(1f)
+            )
+            StatCard(
+                label = "Wrong",
+                value = "${total - quiz.score}",
+                icon = Icons.Default.Cancel,
+                tint = WeakAreaRed,
+                modifier = Modifier.weight(1f)
+            )
+            StatCard(
+                label = "Total",
+                value = "$total",
+                icon = Icons.Default.Quiz,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Text("Question Review", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+
+        quiz.questions.forEachIndexed { index, question ->
+            QuizReviewQuestionCard(questionNumber = index + 1, question = question)
+        }
+
+        Button(
+            onClick = onBack,
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Back")
+        }
+    }
+}
+
+@Composable
+private fun QuizReviewQuestionCard(
+    questionNumber: Int,
+    question: QuizQuestion
+) {
+    val isCorrect = question.selectedAnswerIndex == question.correctAnswerIndex
+    val selectedText = question.options.getOrNull(question.selectedAnswerIndex)
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Q$questionNumber", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = if (isCorrect) StrongAreaGreen.copy(alpha = 0.15f) else WeakAreaRed.copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = if (isCorrect) "Correct" else "Wrong",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (isCorrect) StrongAreaGreen else WeakAreaRed,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Text(question.question, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+
+            question.options.forEachIndexed { index, option ->
+                val optionColor = when {
+                    index == question.correctAnswerIndex -> StrongAreaGreen.copy(alpha = 0.14f)
+                    index == question.selectedAnswerIndex && !isCorrect -> WeakAreaRed.copy(alpha = 0.14f)
+                    index == question.selectedAnswerIndex -> MaterialTheme.colorScheme.primaryContainer
+                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                }
+                val borderColor = when {
+                    index == question.correctAnswerIndex -> StrongAreaGreen
+                    index == question.selectedAnswerIndex && !isCorrect -> WeakAreaRed
+                    index == question.selectedAnswerIndex -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = optionColor,
+                    border = BorderStroke(1.2.dp, borderColor)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(borderColor.copy(alpha = 0.16f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = listOf("A", "B", "C", "D").getOrElse(index) { "?" },
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = borderColor
+                            )
+                        }
+                        Text(option, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+
+            val selectedLabel = selectedText ?: "Not answered"
+            Text(
+                text = "Your answer: $selectedLabel",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+
+            question.explanation.takeIf { it.isNotBlank() }?.let {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text(
+                        text = it,
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 }
             }
         }

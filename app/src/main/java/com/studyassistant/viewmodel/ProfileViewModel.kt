@@ -88,7 +88,7 @@ class ProfileViewModel @Inject constructor(
 
     // Average score across all quizzes
     fun averageScore(): Int {
-        val history = _uiState.value.quizHistory.filter { it.completed }
+        val history = _uiState.value.quizHistory
         if (history.isEmpty()) return 0
         return history.map { q ->
             if (q.questions.isEmpty()) 0

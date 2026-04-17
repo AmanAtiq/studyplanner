@@ -19,7 +19,7 @@ import com.studyassistant.viewmodel.QuizzesViewModel
 @Composable
 fun QuizzesListScreen(
     onBack: () -> Unit,
-    onOpenQuiz: (String) -> Unit,
+    onOpenQuiz: (String, Boolean) -> Unit,
     viewModel: QuizzesViewModel = hiltViewModel()
 ) {
     val quizzes = viewModel.quizzes.collectAsState().value
@@ -27,7 +27,7 @@ fun QuizzesListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Quizzes", fontWeight = FontWeight.Bold) },
+                title = { Text("Quiz History", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
                 }
@@ -37,11 +37,15 @@ fun QuizzesListScreen(
         LazyColumn(modifier = Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
             if (quizzes.isEmpty()) {
                 item {
-                    Text("No quizzes available yet. Generate a quiz by uploading a note.", modifier = Modifier.padding(8.dp))
+                    Text("No completed quiz attempts yet. Take a quiz to see results here.", modifier = Modifier.padding(8.dp))
                 }
             }
             items(quizzes) { quiz ->
-                QuizCard(quiz = quiz, onTake = { onOpenQuiz(quiz.noteId) })
+                QuizCard(
+                    quiz = quiz,
+                    onOpenAttempt = { onOpenQuiz(quiz.noteId, false) },
+                    onTakeQuiz = { onOpenQuiz(quiz.noteId, true) }
+                )
                 Spacer(Modifier.height(10.dp))
             }
         }
