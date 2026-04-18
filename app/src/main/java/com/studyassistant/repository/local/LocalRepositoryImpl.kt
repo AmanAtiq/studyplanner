@@ -37,9 +37,17 @@ class LocalRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getCachedQuizzes(): Flow<List<Quiz>> =
-        combine(store.quizzesFlow(), store.settings) { quizzes, settings ->
+        combine(store.quizzesFlow(), store.notesFlow(), store.settings) { quizzes, notes, settings ->
             val currentUserId = settings.currentUserId
-            if (currentUserId == null) emptyList() else quizzes.filter { it.userId == currentUserId && it.completed }
+            if (currentUserId == null) emptyList()
+            else {
+                quizzes.filter { it.userId == currentUserId && it.completed }.map { quiz ->
+                    if (quiz.title.isBlank()) {
+                        val noteTitle = notes.firstOrNull { it.id == quiz.noteId }?.title
+                        quiz.copy(title = noteTitle ?: quiz.title)
+                    } else quiz
+                }
+            }
         }
 
     override suspend fun cacheStudyPlan(plan: StudyPlan) {

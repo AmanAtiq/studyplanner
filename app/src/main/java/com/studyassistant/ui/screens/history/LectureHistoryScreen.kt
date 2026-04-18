@@ -22,6 +22,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,15 +41,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.border
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.studyassistant.domain.model.Note
 import com.studyassistant.viewmodel.HomeViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
+import com.studyassistant.ui.components.ScreenBackground
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,35 +65,41 @@ fun LectureHistoryScreen(
     val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
             TopAppBar(
-                title = { Text("Lecture History", fontWeight = FontWeight.Bold) },
+                title = { Text("Lecture History", fontWeight = FontWeight.Bold, color = Color.Black) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.Black)
                     }
-                }
+                },
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                )
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            item { HeaderCard(noteCount = notes.size) }
+        ScreenBackground {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item { HeaderCard(noteCount = notes.size) }
 
-            if (notes.isEmpty()) {
-                item { EmptyHistoryState() }
-            } else {
-                items(notes, key = { it.id }) { note ->
-                    LectureHistoryCard(
-                        note = note,
-                        formattedDate = dateFormat.format(note.updatedAt.takeIf { it.time > 0 } ?: note.createdAt),
-                        onOpenNote = onOpenNote
-                    )
+                if (notes.isEmpty()) {
+                    item { EmptyHistoryState() }
+                } else {
+                    items(notes, key = { it.id }) { note ->
+                        LectureHistoryCard(
+                            note = note,
+                            formattedDate = dateFormat.format(note.updatedAt.takeIf { it.time > 0 } ?: note.createdAt),
+                            onOpenNote = onOpenNote
+                        )
+                    }
                 }
             }
         }
@@ -99,7 +110,8 @@ fun LectureHistoryScreen(
 private fun HeaderCard(noteCount: Int) {
     Card(
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        modifier = Modifier.border(1.dp, Color.Black, RoundedCornerShape(24.dp))
     ) {
         Row(
             modifier = Modifier
@@ -112,23 +124,24 @@ private fun HeaderCard(noteCount: Int) {
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
+                    .background(Color.White)
+                    .border(1.dp, Color.Black, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.MenuBook,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = Color.Black,
                     modifier = Modifier.size(28.dp)
                 )
             }
 
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Your lecture archive", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Your lecture archive", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Color.Black)
                 Text(
                     text = if (noteCount == 0) "No lectures saved yet" else "$noteCount saved lectures",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    color = Color.Black.copy(alpha = 0.8f)
                 )
             }
         }
@@ -139,8 +152,9 @@ private fun HeaderCard(noteCount: Int) {
 private fun EmptyHistoryState() {
     Card(
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.border(1.dp, Color.Black, RoundedCornerShape(22.dp))
     ) {
         Column(
             modifier = Modifier
@@ -153,21 +167,22 @@ private fun EmptyHistoryState() {
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .background(Color.White)
+                    .border(1.dp, Color.Black, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.MenuBook,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = Color.Black,
                     modifier = Modifier.size(34.dp)
                 )
             }
-            Text("No lecture history yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("No lecture history yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Color.Black)
             Text(
                 text = "Upload a note and it will appear here as a readable lecture card.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                color = Color.Black.copy(alpha = 0.65f),
                 textAlign = TextAlign.Center
             )
         }
@@ -183,8 +198,9 @@ private fun LectureHistoryCard(
     Card(
         onClick = { onOpenNote(note.id) },
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.border(1.dp, Color.Black, RoundedCornerShape(22.dp))
     ) {
         Column(
             modifier = Modifier
@@ -201,10 +217,11 @@ private fun LectureHistoryCard(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(Color.White)
+                        .border(1.dp, Color.Black, RoundedCornerShape(14.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Default.MenuBook, contentDescription = null, tint = Color.Black)
                 }
 
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -213,26 +230,27 @@ private fun LectureHistoryCard(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        color = Color.Black
                     )
                     Text(
                         text = formattedDate,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                        color = Color.Black.copy(alpha = 0.55f)
                     )
                 }
 
                 Icon(
                     Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                    tint = Color.Black.copy(alpha = 0.45f)
                 )
             }
 
             Text(
                 text = note.summary.ifBlank { note.originalContent.take(180).ifBlank { "No note content captured yet." } },
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                color = Color.Black.copy(alpha = 0.75f),
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
@@ -246,7 +264,7 @@ private fun LectureHistoryCard(
                         text = "Open note",
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = Color.White,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -267,15 +285,20 @@ private fun LectureHistoryCard(
                 }
             }
 
-            OutlinedButton(
+            Button(
                 onClick = { onOpenNote(note.id) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .height(52.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Black,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(10.dp)
             ) {
-                Icon(Icons.Default.OpenInNew, contentDescription = null)
+                Icon(Icons.Default.OpenInNew, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Open Lecture")
+                Text("Open Lecture", color = Color.White)
             }
         }
     }

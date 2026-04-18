@@ -19,9 +19,17 @@ class GenerateQuizUseCase @Inject constructor(
         val content = note.summary.ifEmpty { note.originalContent }
         val questionsResult = aiRepository.generateQuiz(content, numQuestions, language)
         return questionsResult.map { questions ->
+            // Try to generate a short, user-friendly title for this quiz
+            val title = try {
+                aiRepository.generateQuizTitle(content, language).getOrElse { "" }
+            } catch (e: Exception) {
+                ""
+            }
+
             val quiz = Quiz(
                 noteId = note.id,
                 userId = note.userId,
+                title = title.ifBlank { note.title.ifBlank { "Quiz for ${note.id.take(6)}" } },
                 questions = questions
             )
             firebaseRepository.saveQuiz(quiz).getOrDefault(quiz)

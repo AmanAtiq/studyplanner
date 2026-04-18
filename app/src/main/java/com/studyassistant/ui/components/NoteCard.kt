@@ -1,25 +1,20 @@
 package com.studyassistant.ui.components
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import com.studyassistant.domain.model.*
-import com.studyassistant.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -36,10 +31,13 @@ fun NoteCard(
     val dateFormat = remember { SimpleDateFormat("MMM dd", Locale.getDefault()) }
     Card(
         onClick = onTap,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(width = 2.dp, color = Color.Black, shape = RoundedCornerShape(16.dp))
+            .background(Color.White), // Explicitly set background to pure white
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White), // Ensure container color is white
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp) // Remove any shadow to ensure flat white background
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -52,18 +50,21 @@ fun NoteCard(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer),
+                            .background(Color.White), // Updated to white background
                         contentAlignment = Alignment.Center
                     ) {
+                        // Choose icon, tint and size per file type. PDF gets a pure red, slightly larger icon.
+                        val (iv, tint, sizeDp) = when (note.fileType) {
+                            FileType.PDF -> Triple(Icons.Default.PictureAsPdf, Color(0xFFFF0000), 26.dp)
+                            FileType.IMAGE -> Triple(Icons.Default.Image, MaterialTheme.colorScheme.primary, 22.dp)
+                            else -> Triple(Icons.AutoMirrored.Filled.Article, MaterialTheme.colorScheme.primary, 22.dp)
+                        }
+
                         Icon(
-                            imageVector = when (note.fileType) {
-                                FileType.PDF -> Icons.Default.PictureAsPdf
-                                FileType.IMAGE -> Icons.Default.Image
-                                else -> Icons.Default.Article
-                            },
+                            imageVector = iv,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
+                            tint = tint,
+                            modifier = Modifier.size(sizeDp)
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
@@ -73,7 +74,8 @@ fun NoteCard(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            color = Color.Black // Set text color to black
                         )
                         Text(
                             text = dateFormat.format(note.createdAt),

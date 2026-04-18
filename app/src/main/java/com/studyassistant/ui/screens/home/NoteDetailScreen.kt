@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.studyassistant.domain.model.Note
 import com.studyassistant.viewmodel.HomeViewModel
+import com.studyassistant.ui.components.ScreenBackground
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,58 +40,60 @@ fun NoteDetailScreen(
             )
         }
     ) { padding ->
-        if (note == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-            ) {
-                Text("Note not found.", modifier = Modifier.padding(24.dp))
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Card {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(note.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                        Text(
-                            text = if (note.summary.isNotBlank()) note.summary else "Summary will appear here after upload.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+        ScreenBackground {
+            if (note == null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                ) {
+                    Text("Note not found.", modifier = Modifier.padding(24.dp))
                 }
-
-                Card {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Original Notes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(note.originalContent.ifBlank { "No text content available." }, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-
-                if (note.fileUrl.isNotBlank()) {
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
                     Card {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Attachment saved locally", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                            Text(note.fileUrl, style = MaterialTheme.typography.bodySmall)
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(note.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = if (note.summary.isNotBlank()) note.summary else "Summary will appear here after upload.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                         }
                     }
-                }
 
-                Button(
-                    onClick = { onTakeQuiz(note.id) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp)
-                ) {
-                    Icon(Icons.Default.Quiz, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Take Quiz", style = MaterialTheme.typography.titleSmall)
+                    Card {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Original Notes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(note.originalContent.ifBlank { "No text content available." }, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+
+                    if (note.fileUrl.isNotBlank()) {
+                        Card {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Attachment saved locally", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text(note.fileUrl, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+
+                    Button(
+                        onClick = { onTakeQuiz(note.id) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                    ) {
+                        Icon(Icons.Default.Quiz, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Take Quiz", style = MaterialTheme.typography.titleSmall)
+                    }
                 }
             }
         }

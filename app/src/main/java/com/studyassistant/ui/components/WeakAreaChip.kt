@@ -45,7 +45,7 @@ fun WeakAreaChip(weakArea: WeakArea, modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
-            Text(weakArea.topic, style = MaterialTheme.typography.labelSmall, color = color)
+            Text(weakArea.topic.replace(Regex("[0-9-]+"), "").trim().ifBlank { "General Topic" }, style = MaterialTheme.typography.labelSmall, color = color)
             Text("$accuracy%", style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold, color = color)
         }

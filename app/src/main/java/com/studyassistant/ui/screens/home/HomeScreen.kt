@@ -1,5 +1,4 @@
 package com.studyassistant.ui.screens.home
-
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -9,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,13 +16,17 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.studyassistant.domain.model.*
 import com.studyassistant.ui.components.*
+import com.studyassistant.ui.components.ViewPager2Component
 import com.studyassistant.ui.theme.*
 import com.studyassistant.viewmodel.HomeViewModel
+import com.studyassistant.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +48,7 @@ fun HomeScreen(
                     Column {
                         Text(
                             text = "Study Assistant",
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily(listOf(Font(R.font.opun_mai)))),
                             fontWeight = FontWeight.Bold
                         )
                         uiState.currentUser?.name?.let { name ->
@@ -59,7 +63,7 @@ fun HomeScreen(
                 actions = {
                     Spacer(Modifier.width(8.dp))
                     IconButton(onClick = onNavigateToQuizzes) {
-                        Icon(Icons.Default.List, contentDescription = "Quizzes", modifier = Modifier.size(26.dp))
+                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Quizzes", modifier = Modifier.size(26.dp))
                     }
                     IconButton(onClick = onNavigateToProfile) {
                         Icon(Icons.Default.AccountCircle, contentDescription = "Profile",
@@ -76,77 +80,85 @@ fun HomeScreen(
                 onClick = onNavigateToUpload,
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
                 text = { Text("Add Note") },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
+                containerColor = Color(0xFFFF8BD2), // Pink
+                contentColor = Color.Black
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(bottom = 100.dp)
-        ) {
-            // Error banner
-            if (uiState.error != null) {
-                item {
-                    ErrorBanner(message = uiState.error!!, onDismiss = viewModel::clearError)
+        ScreenBackground {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(bottom = 100.dp)
+            ) {
+                // Error banner
+                if (uiState.error != null) {
+                    item {
+                        ErrorBanner(message = uiState.error!!, onDismiss = viewModel::clearError)
+                    }
                 }
-            }
 
-            // Quick action cards
-            item {
-                QuickActionsRow(
-                    onUpload = onNavigateToUpload,
-                    onPlanner = onNavigateToPlanner
-                )
-            }
-
-            // Weak areas section
-            if (uiState.weakAreas.isNotEmpty()) {
+                // Quick action cards
                 item {
-                    WeakAreasSection(
-                        weakAreas = uiState.weakAreas
+                    QuickActionsRow(
+                        onUpload = onNavigateToUpload,
+                        onPlanner = onNavigateToPlanner
                     )
                 }
-            }
 
-            // Notes section header
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "My Notes (${uiState.notes.size})",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                // Weak areas section
+                if (uiState.weakAreas.isNotEmpty()) {
+                    item {
+                        WeakAreasSection(
+                            weakAreas = uiState.weakAreas
+                        )
+                    }
+                }
+
+                // Notes section header
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "My Notes (${uiState.notes.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                // Loading
+                if (uiState.isLoading) {
+                    item { LoadingIndicator(message = "Loading notes...") }
+                }
+
+                // Empty state
+                if (!uiState.isLoading && uiState.notes.isEmpty()) {
+                    item { EmptyNotesState(onAdd = onNavigateToUpload) }
+                }
+
+                // Notes list
+                items(uiState.notes, key = { it.id }) { note ->
+                    NoteCard(
+                        note = note,
+                        onTap = { onNavigateToNoteDetail(note.id) },
+                        onDelete = { viewModel.deleteNote(note.id) },
+                        onQuiz = { onNavigateToQuiz(note.id) },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                     )
                 }
-            }
 
-            // Loading
-            if (uiState.isLoading) {
-                item { LoadingIndicator(message = "Loading notes...") }
-            }
-
-            // Empty state
-            if (!uiState.isLoading && uiState.notes.isEmpty()) {
-                item { EmptyNotesState(onAdd = onNavigateToUpload) }
-            }
-
-            // Notes list
-            items(uiState.notes, key = { it.id }) { note ->
-                NoteCard(
-                    note = note,
-                    onTap = { onNavigateToNoteDetail(note.id) },
-                    onDelete = { viewModel.deleteNote(note.id) },
-                    onQuiz = { onNavigateToQuiz(note.id) },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                )
+                item {
+                    // Small ViewPager embedded as a banner
+                    ViewPager2Component(pages = listOf("Welcome to Study Assistant", "Try Uploading a Note", "Open Planner"))
+                    Spacer(Modifier.height(8.dp))
+                }
             }
         }
     }
@@ -167,17 +179,19 @@ private fun QuickActionsRow(
             title = "Upload Note",
             subtitle = "AI Summary",
             icon = Icons.Default.Upload,
-            gradient = Brush.linearGradient(listOf(Color(0xFF6C63FF), Color(0xFF3B82F6))),
+            color = Color(0xFF87CEFA), // Light Sky Blue
+            textColor = Color.Black,
             onClick = onUpload,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f).border(1.dp, Color.Black, RoundedCornerShape(16.dp))
         )
         QuickActionCard(
             title = "Study Planner",
             subtitle = "AI Plan",
             icon = Icons.Default.CalendarMonth,
-            gradient = Brush.linearGradient(listOf(Color(0xFF1DB954), Color(0xFF0F6E56))),
+            color = Color(0xFFB7A1E2), // Purple
+            textColor = Color.Black,
             onClick = onPlanner,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f).border(1.dp, Color.Black, RoundedCornerShape(16.dp))
         )
     }
 }
@@ -188,7 +202,8 @@ private fun QuickActionCard(
     title: String,
     subtitle: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    gradient: Brush,
+    color: Color,
+    textColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -196,22 +211,21 @@ private fun QuickActionCard(
         onClick = onClick,
         modifier = modifier.height(100.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        colors = CardDefaults.cardColors(containerColor = color)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(gradient)
                 .padding(14.dp)
         ) {
             Column {
-                Icon(icon, contentDescription = null, tint = Color.White,
+                Icon(icon, contentDescription = null, tint = textColor,
                     modifier = Modifier.size(26.dp))
                 Spacer(Modifier.weight(1f))
                 Text(title, style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold, color = Color.White)
+                    fontWeight = FontWeight.Bold, color = textColor)
                 Text(subtitle, style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.8f))
+                    color = textColor.copy(alpha = 0.8f))
             }
         }
     }
@@ -250,7 +264,7 @@ private fun EmptyNotesState(onAdd: () -> Unit) {
                 .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.MenuBook, contentDescription = null,
+            Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
         }
         Text(
@@ -261,11 +275,15 @@ private fun EmptyNotesState(onAdd: () -> Unit) {
         )
         Button(
             onClick = onAdd,
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFFF8BD2), // Pink
+                contentColor = Color.Black
+            )
         ) {
-            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.Black)
             Spacer(Modifier.width(6.dp))
-            Text("Add Note")
+            Text("Add Note", color = Color.Black)
         }
     }
 }

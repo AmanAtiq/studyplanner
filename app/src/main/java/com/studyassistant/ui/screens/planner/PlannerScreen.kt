@@ -23,6 +23,8 @@ import com.studyassistant.viewmodel.PlannerViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.draw.clip
+import com.studyassistant.ui.components.ScreenBackground
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlannerScreen(
@@ -43,73 +45,75 @@ fun PlannerScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(bottom = 32.dp)
-        ) {
-            // Error
-            uiState.error?.let { error ->
-                item { ErrorBanner(message = error, onDismiss = viewModel::clearError) }
-            }
+        ScreenBackground {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(bottom = 32.dp)
+            ) {
+                // Error
+                uiState.error?.let { error ->
+                    item { ErrorBanner(message = error, onDismiss = viewModel::clearError) }
+                }
 
-            // Generate plan button / loading
-            item {
-                GeneratePlanSection(
-                    isGenerating = uiState.isGenerating,
-                    hasPlan = uiState.studyPlan != null,
-                    onGenerate = viewModel::generatePlan
-                )
-            }
-
-            // Plan content
-            if (uiState.studyPlan != null) {
-                val plan = uiState.studyPlan!!
-
-                // DEBUG: Show plan source (AI or FALLBACK)
+                // Generate plan button / loading
                 item {
-                    DebugSourceBanner(source = plan.source)
+                    GeneratePlanSection(
+                        isGenerating = uiState.isGenerating,
+                        hasPlan = uiState.studyPlan != null,
+                        onGenerate = viewModel::generatePlan
+                    )
                 }
 
-                // Plan header
-                item {
-                    PlanHeader(plan = plan)
-                }
+                // Plan content
+                if (uiState.studyPlan != null) {
+                    val plan = uiState.studyPlan!!
 
-                // Progress summary
-                item {
-                    PlanProgressCard(plan = plan)
-                }
-
-                // Tasks grouped by date
-                val grouped = plan.tasks.groupBy {
-                    SimpleDateFormat("EEE, MMM dd", Locale.getDefault()).format(it.dueDate)
-                }
-
-                grouped.forEach { (date, tasks) ->
+                    // DEBUG: Show plan source (AI or FALLBACK)
                     item {
-                        Text(
-                            text = date,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
+                        DebugSourceBanner(source = plan.source)
                     }
-                    items(tasks, key = { it.id }) { task ->
-                        StudyTaskItem(
-                            task = task,
-                            onToggle = { viewModel.toggleTaskCompletion(task.id) },
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                        )
+
+                    // Plan header
+                    item {
+                        PlanHeader(plan = plan)
+                    }
+
+                    // Progress summary
+                    item {
+                        PlanProgressCard(plan = plan)
+                    }
+
+                    // Tasks grouped by date
+                    val grouped = plan.tasks.groupBy {
+                        SimpleDateFormat("EEE, MMM dd", Locale.getDefault()).format(it.dueDate)
+                    }
+
+                    grouped.forEach { (date, tasks) ->
+                        item {
+                            Text(
+                                text = date,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+                        items(tasks, key = { it.id }) { task ->
+                            StudyTaskItem(
+                                task = task,
+                                onToggle = { viewModel.toggleTaskCompletion(task.id) },
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                            )
+                        }
                     }
                 }
-            }
 
-            // Empty state
-            if (uiState.studyPlan == null && !uiState.isGenerating) {
-                item { PlannerEmptyState(onGenerate = viewModel::generatePlan) }
+                // Empty state
+                if (uiState.studyPlan == null && !uiState.isGenerating) {
+                    item { PlannerEmptyState(onGenerate = viewModel::generatePlan) }
+                }
             }
         }
     }

@@ -6,7 +6,10 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import com.studyassistant.R
+import com.studyassistant.ui.screens.splash.SplashScreen
 import com.studyassistant.ui.theme.StudyAssistantTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -20,7 +23,18 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    NavGraph()
+                    // Show splash screen or main navigation
+                    var showSplash by remember { mutableStateOf(true) }
+
+                    if (showSplash) {
+                        SplashScreen(
+                            onNavigate = {
+                                showSplash = false
+                            }
+                        )
+                    } else {
+                        NavGraph()
+                    }
                 }
             }
         }

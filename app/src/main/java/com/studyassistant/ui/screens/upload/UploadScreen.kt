@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import com.studyassistant.ui.components.ScreenBackground
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -144,142 +145,148 @@ fun UploadScreen(
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Error
-            uiState.error?.let { ErrorBanner(message = it, onDismiss = viewModel::clearError) }
-
-            // Pick image/pdf buttons
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { imageLauncher.launch("image/*") }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Image, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Pick Image (OCR)")
-                }
-                OutlinedButton(onClick = { pdfLauncher.launch(arrayOf("application/pdf")) }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.PictureAsPdf, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Pick PDF")
-                }
-            }
-
-            // Selected file info
-            if (selectedFileName != null) {
-                Text("Selected: ${selectedFileName} (${selectedFileBytes?.size ?: 0} bytes)")
-            }
-
-            // Title field
-            OutlinedTextField(
-                value = uiState.title,
-                onValueChange = viewModel::onTitleChange,
-                label = { Text("Note Title") },
-                placeholder = { Text("e.g. Physics Chapter 3") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Title, contentDescription = null) }
-            )
-
-            // Content field
-            OutlinedTextField(
-                value = uiState.content,
-                onValueChange = viewModel::onContentChange,
-                label = { Text("Note Content") },
-                placeholder = { Text("Paste your notes here... or pick an image/pdf to extract") },
+        ScreenBackground {
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp),
-                shape = RoundedCornerShape(14.dp)
-            )
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Error
+                uiState.error?.let { ErrorBanner(message = it, onDismiss = viewModel::clearError) }
 
-            // Character count (no limit)
-            Text(
-                text = "${uiState.content.length} characters",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
-                modifier = Modifier.align(Alignment.End)
-            )
-
-            // AI Info card
-            AISummaryInfoCard()
-
-            // Visible warning if Gemini API key not set (local fallback will be used)
-            if (Constants.GEMINI_API_KEY.isBlank()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("AI key not configured — using local fallback (no external AI).", color = MaterialTheme.colorScheme.onErrorContainer)
-                        Text("To enable real AI summaries/quizzes, add GEMINI_API_KEY to local.properties.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                // Pick image/pdf buttons
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { imageLauncher.launch("image/*") }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.Image, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Pick Image (OCR)")
+                    }
+                    OutlinedButton(onClick = { pdfLauncher.launch(arrayOf("application/pdf")) }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Pick PDF")
                     }
                 }
-            }
 
-            // Summary preview
-            AnimatedVisibility(visible = uiState.summary.isNotEmpty()) {
-                SummaryPreviewCard(summary = uiState.summary)
-            }
-
-            // Upload button (passes selected file bytes/name)
-            Button(
-                onClick = {
-                    viewModel.uploadNote(selectedFileBytes, selectedFileName)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-                shape = RoundedCornerShape(14.dp),
-                enabled = !uiState.isUploading && !uiState.isSummarizing
-                        && uiState.title.isNotBlank() && uiState.content.isNotBlank()
-            ) {
-                if (uiState.isUploading || uiState.isSummarizing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(22.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        if (uiState.isUploading) "Saving..." else "AI Summarizing..."
-                    )
-                } else {
-                    Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Save & Summarize", style = MaterialTheme.typography.titleSmall)
+                // Selected file info
+                if (selectedFileName != null) {
+                    Text("Selected: ${selectedFileName} (${selectedFileBytes?.size ?: 0} bytes)")
                 }
-            }
 
-            // Success area: show explicit button to open the saved summary.
-            if (uiState.isSuccess) {
-                Card(
+                // Title field
+                OutlinedTextField(
+                    value = uiState.title,
+                    onValueChange = viewModel::onTitleChange,
+                    label = { Text("Note Title") },
+                    placeholder = { Text("e.g. Physics Chapter 3") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    shape = RoundedCornerShape(14.dp),
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Default.Title, contentDescription = null) }
+                )
+
+                // Content field
+                OutlinedTextField(
+                    value = uiState.content,
+                    onValueChange = viewModel::onContentChange,
+                    label = { Text("Note Content") },
+                    placeholder = { Text("Paste your notes here... or pick an image/pdf to extract") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp),
+                    shape = RoundedCornerShape(14.dp)
+                )
+
+                // Character count (no limit)
+                Text(
+                    text = "${uiState.content.length} characters",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                    modifier = Modifier.align(Alignment.End)
+                )
+
+                // AI Info card
+                AISummaryInfoCard()
+
+                // Visible warning if Gemini API key not set (local fallback will be used)
+                if (Constants.GEMINI_API_KEY.isBlank()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("AI key not configured — using local fallback (no external AI).", color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("To enable real AI summaries/quizzes, add GEMINI_API_KEY to local.properties.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                    }
+                }
+
+                // Summary preview
+                AnimatedVisibility(visible = uiState.summary.isNotEmpty()) {
+                    SummaryPreviewCard(summary = uiState.summary)
+                }
+
+                // Upload button (passes selected file bytes/name)
+                Button(
+                    onClick = {
+                        viewModel.uploadNote(selectedFileBytes, selectedFileName)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFF8BD2), // Pink
+                        contentColor = Color.Black
+                    ),
+                    enabled = !uiState.isUploading && !uiState.isSummarizing
+                            && uiState.title.isNotBlank() && uiState.content.isNotBlank()
                 ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Saved successfully", style = MaterialTheme.typography.titleMedium)
-                        uiState.savedNoteId?.let { noteId ->
-                            Text("Summary saved for note: ${noteId}", style = MaterialTheme.typography.bodySmall)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = { onUploadSuccess(noteId) }) {
-                                    Text("Open Summary")
+                    if (uiState.isUploading || uiState.isSummarizing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            if (uiState.isUploading) "Saving..." else "AI Summarizing..."
+                        )
+                    } else {
+                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Save & Summarize", style = MaterialTheme.typography.titleSmall)
+                    }
+                }
+
+                // Success area: show explicit button to open the saved summary.
+                if (uiState.isSuccess) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Saved successfully", style = MaterialTheme.typography.titleMedium)
+                            uiState.savedNoteId?.let { noteId ->
+                                Text("Summary saved for note: ${noteId}", style = MaterialTheme.typography.bodySmall)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { onUploadSuccess(noteId) }) {
+                                        Text("Open Summary")
+                                    }
+                                    OutlinedButton(onClick = { viewModel.resetSuccess() }) {
+                                        Text("Close")
+                                    }
                                 }
-                                OutlinedButton(onClick = { viewModel.resetSuccess() }) {
-                                    Text("Close")
-                                }
-                            }
-                        } ?: run {
-                            Text("Note saved and summary generated.", style = MaterialTheme.typography.bodySmall)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = { viewModel.resetSuccess() }) {
-                                    Text("Done")
+                            } ?: run {
+                                Text("Note saved and summary generated.", style = MaterialTheme.typography.bodySmall)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(onClick = { viewModel.resetSuccess() }) {
+                                        Text("Done")
+                                    }
                                 }
                             }
                         }

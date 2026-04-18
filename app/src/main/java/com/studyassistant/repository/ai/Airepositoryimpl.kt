@@ -197,6 +197,46 @@ Be precise, educational, and directly useful for exam preparation.""".trimIndent
         }
     }
 
+    override suspend fun generateQuizTitle(content: String, language: AppLanguage): Result<String> {
+        return try {
+            if (Constants.GEMINI_API_KEY.isBlank()) {
+                Log.w("AIRepo", "generateQuizTitle: API key missing, using fallback")
+                return Result.success(localGenerateTitle(content))
+            }
+
+            val langInstruction = if (language == AppLanguage.URDU) "Respond in Urdu." else "Respond in English."
+
+            val response = apiService.generateContent(
+                model = Constants.GEMINI_MODEL,
+                apiKey = Constants.GEMINI_API_KEY,
+                request = GeminiRequest(
+                    systemInstruction = GeminiContent(parts = listOf(GeminiPart(text = "You are an expert educational assistant."))),
+                    contents = listOf(
+                        GeminiContent(role = "user", parts = listOf(
+                            GeminiPart(text = "Read the following study content and suggest a short 3-6 word title that best describes the quiz topic. Return ONLY the title with no extra words.\n\nContent: $content")
+                        ))
+                    )
+                )
+            )
+
+            val text = response.firstTextOrEmpty().trim().lines().firstOrNull() ?: ""
+            if (text.isBlank()) Result.success(localGenerateTitle(content)) else Result.success(text)
+        } catch (e: Exception) {
+            Log.e("AIRepo", "generateQuizTitle error: ${e.message}")
+            Result.success(localGenerateTitle(content))
+        }
+    }
+
+    // simple heuristic fallback to extract short title from content
+    private fun localGenerateTitle(content: String): String {
+        val words = content.replace(Regex("[^A-Za-z0-9 ]"), " ").split(Regex("\\s+"))
+            .filter { it.length > 3 }
+        val top = words.take(6).joinToString(" ")
+        return if (top.isBlank()) "General Quiz" else top.capitalizeWords()
+    }
+
+    private fun String.capitalizeWords(): String = this.split(' ').joinToString(" ") { it.replaceFirstChar { ch -> ch.uppercaseChar() } }
+
     override suspend fun generateStudyPlan(
         weakAreas: List<WeakArea>,
         targetExam: String

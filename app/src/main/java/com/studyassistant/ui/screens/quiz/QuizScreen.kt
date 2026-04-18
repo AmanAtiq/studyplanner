@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.studyassistant.domain.model.*
 import com.studyassistant.ui.components.*
+import com.studyassistant.ui.components.ScreenBackground
 import com.studyassistant.ui.theme.*
 import com.studyassistant.viewmodel.QuizViewModel
 
@@ -72,157 +74,159 @@ fun QuizScreen(
             )
         }
     ) { padding ->
-        when {
-            uiState.isLoading -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    LoadingIndicator(
-                        if (uiState.language == AppLanguage.URDU)
-                            "AI سوالات بنا رہا ہے..." else "AI is generating your quiz..."
-                    )
-                }
-            }
-            uiState.error != null -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Icon(Icons.Default.ErrorOutline, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
-                        Text(uiState.error!!, textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.error)
-                        Button(onClick = onBack) { Text("Go Back") }
+        ScreenBackground {
+            when {
+                uiState.isLoading -> {
+                    Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                        LoadingIndicator(
+                            if (uiState.language == AppLanguage.URDU)
+                                "AI سوالات بنا رہا ہے..." else "AI is generating your quiz..."
+                        )
                     }
                 }
-            }
-            quiz != null -> {
-                if (isReviewMode) {
-                    QuizReviewContent(
-                        quiz = quiz,
-                        onBack = onBack,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                    )
-                } else {
-                    val question = quiz.questions.getOrNull(uiState.currentQuestionIndex)
-                    if (question != null) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                            .verticalScroll(rememberScrollState())
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Progress bar
-                        val progress = (uiState.currentQuestionIndex + 1).toFloat() / quiz.questions.size
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.primaryContainer,
-                            strokeCap = StrokeCap.Round
+                uiState.error != null -> {
+                    Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Icon(Icons.Default.ErrorOutline, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+                            Text(uiState.error!!, textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.error)
+                            Button(onClick = onBack) { Text("Go Back") }
+                        }
+                    }
+                }
+                quiz != null -> {
+                    if (isReviewMode) {
+                        QuizReviewContent(
+                            quiz = quiz,
+                            onBack = onBack,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(padding)
                         )
-
-                        // Score chip
-                        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                            Surface(
-                                shape = RoundedCornerShape(20.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Text(
-                                    text = "✓ ${uiState.score}",
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        // Question card
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer
-                            ),
-                            elevation = CardDefaults.cardElevation(0.dp)
+                    } else {
+                        val question = quiz.questions.getOrNull(uiState.currentQuestionIndex)
+                        if (question != null) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(padding)
+                                .verticalScroll(rememberScrollState())
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Column(modifier = Modifier.padding(20.dp)) {
-                                Text(
-                                    text = "Q${uiState.currentQuestionIndex + 1}.",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(Modifier.height(6.dp))
-                                Text(
-                                    text = question.question,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-
-                        // Answer options
-                        question.options.forEachIndexed { index, option ->
-                            AnswerOptionButton(
-                                text = option,
-                                index = index,
-                                selectedIndex = uiState.selectedAnswerIndex,
-                                correctIndex = if (uiState.isAnswerRevealed) question.correctAnswerIndex else -1,
-                                isRevealed = uiState.isAnswerRevealed,
-                                onClick = { viewModel.selectAnswer(index) }
+                            // Progress bar
+                            val progress = (uiState.currentQuestionIndex + 1).toFloat() / quiz.questions.size
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.primaryContainer,
+                                strokeCap = StrokeCap.Round
                             )
-                        }
 
-                        // Explanation
-                        AnimatedVisibility(
-                            visible = uiState.isAnswerRevealed && question.explanation.isNotEmpty()
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = MaterialTheme.colorScheme.secondaryContainer
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(14.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            // Score chip
+                            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                                Surface(
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer
                                 ) {
-                                    Icon(Icons.Default.Lightbulb, contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.secondary,
-                                        modifier = Modifier.size(20.dp))
                                     Text(
-                                        text = question.explanation,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        text = "✓ ${uiState.score}",
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }
-                        }
 
-                        // Action button
-                        Button(
-                            onClick = {
-                                if (!uiState.isAnswerRevealed) viewModel.revealAnswer()
-                                else viewModel.nextQuestion()
-                            },
-                            modifier = Modifier.fillMaxWidth().height(54.dp),
-                            shape = RoundedCornerShape(14.dp),
-                            enabled = uiState.selectedAnswerIndex != -1
-                        ) {
-                            Text(
-                                text = when {
-                                    !uiState.isAnswerRevealed ->
-                                        if (uiState.language == AppLanguage.URDU)
-                                            "جواب چیک کریں" else "Check Answer"
-                                    uiState.currentQuestionIndex + 1 >= (uiState.quiz?.questions?.size ?: 0) ->
-                                        if (uiState.language == AppLanguage.URDU) "نتیجہ دیکھیں" else "See Results"
-                                    else ->
-                                        if (uiState.language == AppLanguage.URDU) "اگلا سوال" else "Next Question"
+                            // Question card
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                                ),
+                                elevation = CardDefaults.cardElevation(0.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(20.dp)) {
+                                    Text(
+                                        text = "Q${uiState.currentQuestionIndex + 1}.",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        text = question.question,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+
+                            // Answer options
+                            question.options.forEachIndexed { index, option ->
+                                AnswerOptionButton(
+                                    text = option,
+                                    index = index,
+                                    selectedIndex = uiState.selectedAnswerIndex,
+                                    correctIndex = if (uiState.isAnswerRevealed) question.correctAnswerIndex else -1,
+                                    isRevealed = uiState.isAnswerRevealed,
+                                    onClick = { viewModel.selectAnswer(index) }
+                                )
+                            }
+
+                            // Explanation
+                            AnimatedVisibility(
+                                visible = uiState.isAnswerRevealed && question.explanation.isNotEmpty()
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(14.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(Icons.Default.Lightbulb, contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.secondary,
+                                            modifier = Modifier.size(20.dp))
+                                        Text(
+                                            text = question.explanation,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Action button
+                            Button(
+                                onClick = {
+                                    if (!uiState.isAnswerRevealed) viewModel.revealAnswer()
+                                    else viewModel.nextQuestion()
                                 },
-                                style = MaterialTheme.typography.titleSmall
-                            )
+                                modifier = Modifier.fillMaxWidth().height(54.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                enabled = uiState.selectedAnswerIndex != -1
+                            ) {
+                                Text(
+                                    text = when {
+                                        !uiState.isAnswerRevealed ->
+                                            if (uiState.language == AppLanguage.URDU)
+                                                "جواب چیک کریں" else "Check Answer"
+                                        uiState.currentQuestionIndex + 1 >= (uiState.quiz?.questions?.size ?: 0) ->
+                                            if (uiState.language == AppLanguage.URDU) "نتیجہ دیکھیں" else "See Results"
+                                        else ->
+                                            if (uiState.language == AppLanguage.URDU) "اگلا سوال" else "Next Question"
+                                    },
+                                    style = MaterialTheme.typography.titleSmall
+                                )
+                            }
                         }
                     }
                 }
@@ -305,7 +309,7 @@ private fun QuizReviewContent(
             modifier = Modifier.fillMaxWidth().height(54.dp),
             shape = RoundedCornerShape(14.dp)
         ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
             Text("Back")
         }
