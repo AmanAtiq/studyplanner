@@ -18,10 +18,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -30,7 +30,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -49,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.border
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.studyassistant.domain.model.Note
+import com.studyassistant.domain.model.friendlyNoteTitle
 import com.studyassistant.viewmodel.HomeViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -71,7 +71,7 @@ fun LectureHistoryScreen(
                 title = { Text("Lecture History", fontWeight = FontWeight.Bold, color = Color.Black) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.Black)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.Black)
                     }
                 },
                 colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
@@ -129,7 +129,7 @@ private fun HeaderCard(noteCount: Int) {
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Default.MenuBook,
+                    Icons.AutoMirrored.Filled.MenuBook,
                     contentDescription = null,
                     tint = Color.Black,
                     modifier = Modifier.size(28.dp)
@@ -172,7 +172,7 @@ private fun EmptyHistoryState() {
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Default.MenuBook,
+                    Icons.AutoMirrored.Filled.MenuBook,
                     contentDescription = null,
                     tint = Color.Black,
                     modifier = Modifier.size(34.dp)
@@ -221,12 +221,13 @@ private fun LectureHistoryCard(
                         .border(1.dp, Color.Black, RoundedCornerShape(14.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.MenuBook, contentDescription = null, tint = Color.Black)
+                    Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, tint = Color.Black)
                 }
 
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    val displayTitle = friendlyNoteTitle(note)
                     Text(
-                        text = note.title,
+                        text = displayTitle,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -296,7 +297,7 @@ private fun LectureHistoryCard(
                 ),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Icon(Icons.Default.OpenInNew, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Open Lecture", color = Color.White)
             }

@@ -1,5 +1,4 @@
 package com.studyassistant.ui.screens.home
-import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -23,8 +21,6 @@ import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.studyassistant.domain.model.*
 import com.studyassistant.ui.components.*
-import com.studyassistant.ui.components.ViewPager2Component
-import com.studyassistant.ui.theme.*
 import com.studyassistant.viewmodel.HomeViewModel
 import com.studyassistant.R
 
@@ -86,6 +82,26 @@ fun HomeScreen(
         }
     ) { padding ->
         ScreenBackground {
+            // Show delete confirmation dialog if needed
+            val pendingId = uiState.pendingDeleteNoteId
+            if (pendingId != null) {
+                AlertDialog(
+                    onDismissRequest = { viewModel.cancelDeleteNote() },
+                    title = { Text("Delete note") },
+                    text = { Text("Are you sure you want to permanently delete this note?") },
+                    confirmButton = {
+                        TextButton(onClick = { viewModel.confirmDeleteNote() }) {
+                            Text("Delete", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { viewModel.cancelDeleteNote() }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -148,15 +164,37 @@ fun HomeScreen(
                     NoteCard(
                         note = note,
                         onTap = { onNavigateToNoteDetail(note.id) },
-                        onDelete = { viewModel.deleteNote(note.id) },
+                        onDelete = { viewModel.requestDeleteNote(note.id) },
                         onQuiz = { onNavigateToQuiz(note.id) },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                     )
                 }
 
                 item {
-                    // Small ViewPager embedded as a banner
-                    ViewPager2Component(pages = listOf("Welcome to Study Assistant", "Try Uploading a Note", "Open Planner"))
+                    // Compose-native slider with improved UI
+                    SliderComponent(
+                        pages = listOf(
+                            com.studyassistant.ui.components.Slide(
+                                title = "Welcome to Study Assistant",
+                                subtitle = "Your AI study companion — upload notes, get summaries & quizzes",
+                                buttonLabel = "Get Started",
+                                action = null
+                            ),
+                            com.studyassistant.ui.components.Slide(
+                                title = "Upload a Note",
+                                subtitle = "Extract summaries, key points and quiz questions",
+                                buttonLabel = "Upload",
+                                action = { onNavigateToUpload() }
+                            ),
+                            com.studyassistant.ui.components.Slide(
+                                title = "Open Planner",
+                                subtitle = "Generate a personalised study plan based on your performance",
+                                buttonLabel = "Plan",
+                                action = { onNavigateToPlanner() }
+                            )
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Spacer(Modifier.height(8.dp))
                 }
             }

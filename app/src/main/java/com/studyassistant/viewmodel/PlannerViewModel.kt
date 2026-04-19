@@ -11,7 +11,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 data class PlannerUiState(
@@ -20,7 +19,9 @@ data class PlannerUiState(
     val isLoading: Boolean = false,
     val isGenerating: Boolean = false,
     val generatingStep: String = "",
-    val error: String? = null
+    val error: String? = null,
+    // The target exam used to generate or displayed for the planner (e.g., "MDCAT", "O Level")
+    val targetExam: String? = null
 )
 
 @HiltViewModel
@@ -33,12 +34,20 @@ class PlannerViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(PlannerUiState())
     val uiState: StateFlow<PlannerUiState> = _uiState.asStateFlow()
 
-    init { loadCachedPlan() }
+    init { loadCachedPlan(); loadUserExamPreference() }
 
     private fun loadCachedPlan() {
         viewModelScope.launch {
             val cached = localRepository.getCachedStudyPlan()
             if (cached != null) _uiState.update { it.copy(studyPlan = cached) }
+        }
+    }
+
+    private fun loadUserExamPreference() {
+        viewModelScope.launch {
+            val currentUser = firebaseRepository.getCurrentUser()
+            val exam = currentUser?.targetExam?.takeIf { it.isNotBlank() }
+            if (exam != null) _uiState.update { it.copy(targetExam = exam) }
         }
     }
 
@@ -52,9 +61,15 @@ class PlannerViewModel @Inject constructor(
             Log.d("PlannerVM", "generatePlan: starting for user=$userId")
 
             try {
+                // Determine target exam from user preferences (fall back to MDCAT)
+                val currentUser = firebaseRepository.getCurrentUser()
+                val preferredExam = currentUser?.targetExam?.takeIf { it.isNotBlank() } ?: "MDCAT"
+                // store the exam we will use in UI state so the screen can show it
+                _uiState.update { it.copy(targetExam = preferredExam) }
+
                 // Call with 40-second timeout for AI response + buffer
                 val result = withTimeoutOrNull(40_000) {
-                    getStudyPlanUseCase(userId, "MDCAT")
+                    getStudyPlanUseCase(userId, preferredExam)
                 }
 
                 if (result == null) {

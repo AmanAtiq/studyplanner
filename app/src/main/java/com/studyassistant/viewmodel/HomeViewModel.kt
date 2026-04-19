@@ -17,7 +17,8 @@ data class HomeUiState(
     val currentUser: User? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
-    val selectedLanguage: AppLanguage = AppLanguage.ENGLISH
+    // Language selection removed from UI
+    val pendingDeleteNoteId: String? = null
 )
 
 @HiltViewModel
@@ -33,7 +34,7 @@ class HomeViewModel @Inject constructor(
     init {
         loadCurrentUser()
         loadNotes()
-        loadLanguagePreference()
+        // loadLanguagePreference() removed
     }
 
     private fun loadCurrentUser() {
@@ -62,27 +63,29 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun loadLanguagePreference() {
-        viewModelScope.launch {
-            val lang = localRepository.getLanguagePreference()
-            _uiState.update { it.copy(selectedLanguage = lang) }
-        }
-    }
-
-    fun toggleLanguage() {
-        viewModelScope.launch {
-            val newLang = if (_uiState.value.selectedLanguage == AppLanguage.ENGLISH)
-                AppLanguage.URDU else AppLanguage.ENGLISH
-            localRepository.saveLanguagePreference(newLang)
-            _uiState.update { it.copy(selectedLanguage = newLang) }
-        }
-    }
+    // Language toggle removed from ViewModel
 
     fun deleteNote(noteId: String) {
         viewModelScope.launch {
             firebaseRepository.deleteNote(noteId)
             localRepository.deleteCachedNote(noteId)
         }
+    }
+
+    // Request deletion: shows confirmation in UI
+    fun requestDeleteNote(noteId: String) {
+        _uiState.update { it.copy(pendingDeleteNoteId = noteId) }
+    }
+
+    // Called when the user confirms deletion
+    fun confirmDeleteNote() {
+        val id = _uiState.value.pendingDeleteNoteId ?: return
+        _uiState.update { it.copy(pendingDeleteNoteId = null) }
+        deleteNote(id)
+    }
+
+    fun cancelDeleteNote() {
+        _uiState.update { it.copy(pendingDeleteNoteId = null) }
     }
 
     fun clearError() = _uiState.update { it.copy(error = null) }

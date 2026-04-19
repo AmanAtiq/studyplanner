@@ -1,3 +1,4 @@
+
 package com.studyassistant.domain.model
 
 import java.util.Date

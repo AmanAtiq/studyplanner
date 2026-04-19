@@ -2,5 +2,25 @@
 <resources>
     <string name="app_name">Study Assistant</string>
     <string name="open">Open</string>
-</resources>
 
+    <!-- Added defaults for translations present in values-ur to satisfy lint -->
+    <string name="home_title">My Notes</string>
+    <string name="add_note">Add Note</string>
+    <string name="upload_note">Upload Note</string>
+    <string name="note_title">Title</string>
+    <string name="note_content">Content</string>
+    <string name="save_summarize">Save &amp; Summarize</string>
+    <string name="ai_summary">AI Summary</string>
+    <string name="take_quiz">Take Quiz</string>
+    <string name="study_planner">Study Planner</string>
+    <string name="weak_areas">Weak Areas</string>
+    <string name="loading">Loading...</string>
+    <string name="generating_quiz">Generating AI questions...</string>
+    <string name="check_answer">Check Answer</string>
+    <string name="next_question">Next Question</string>
+    <string name="see_results">See Results</string>
+    <string name="profile">Profile</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="save">Save</string>
+    <string name="target_exam">Target Exam</string>
+</resources>

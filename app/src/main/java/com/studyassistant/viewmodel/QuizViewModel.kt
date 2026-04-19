@@ -50,7 +50,8 @@ class QuizViewModel @Inject constructor(
                     error = null
                 )
             }
-            val lang = localRepository.getLanguagePreference()
+            // Prefer language set on the user's profile; fall back to ENGLISH
+            val lang = firebaseRepository.getCurrentUser()?.preferredLanguage ?: AppLanguage.ENGLISH
             val note = localRepository.getCachedNoteById(noteId)
                 ?: run {
                     firebaseRepository.getNoteById(noteId).getOrNull()

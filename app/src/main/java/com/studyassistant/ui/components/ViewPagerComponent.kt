@@ -1,78 +1,136 @@
 package com.studyassistant.ui.components
 
-import android.content.Context
-import android.view.Gravity
-import android.view.View
-import android.view.ViewGroup
-import android.widget.LinearLayout
-import android.widget.TextView
-import android.widget.Toast
-import androidx.compose.runtime.Composable
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.recyclerview.widget.RecyclerView
-import androidx.viewpager2.widget.ViewPager2
-import com.google.android.material.button.MaterialButton
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
-/**
- * Simple ViewPager2 component with pages created programmatically.
- * Each page contains a title TextView and an Android MaterialButton.
- */
+// Small data holder for a slide (title + optional action and subtitle)
+data class Slide(
+    val title: String,
+    val subtitle: String = "",
+    val buttonLabel: String = "Open",
+    val action: (() -> Unit)? = null
+)
+
 @Composable
-fun ViewPager2Component(
-    pages: List<String>,
+fun SliderComponent(
+    pages: List<Slide>,
     modifier: Modifier = Modifier
 ) {
-    AndroidView(factory = { context ->
-        createViewPager(context, pages)
-    }, modifier = modifier)
-}
+    if (pages.isEmpty()) return
 
-private fun createViewPager(context: Context, pages: List<String>): ViewPager2 {
-    val viewPager = ViewPager2(context)
-    viewPager.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-    viewPager.adapter = object : RecyclerView.Adapter<PagerViewHolder>() {
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PagerViewHolder {
-            // create a simple vertical LinearLayout with a TextView and a MaterialButton
-            val container = LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                setPadding(24, 24, 24, 24)
-                gravity = Gravity.CENTER
-            }
+    val configuration = LocalConfiguration.current
+    val screenWidth = with(LocalDensity.current) { configuration.screenWidthDp.dp }
+    val itemWidth = screenWidth - 32.dp // honor some horizontal padding
 
-            val tv = TextView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                    gravity = Gravity.CENTER
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val currentPage by derivedStateOf { listState.firstVisibleItemIndex }
+
+    Column(modifier = modifier) {
+        LazyRow(
+            state = listState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(160.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            itemsIndexed(pages) { index, slide ->
+                Card(
+                    modifier = Modifier
+                        .width(itemWidth)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.Transparent),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.linearGradient(
+                                    colors = listOf(Color(0xFFFAF8FF), Color(0xFFF4F7FF))
+                                )
+                            )
+                            .padding(16.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
+                            Column {
+                                Text(
+                                    text = slide.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = Color(0xFF1B1B1F)
+                                )
+                                if (slide.subtitle.isNotBlank()) {
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        text = slide.subtitle,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFF505050),
+                                        maxLines = 2
+                                    )
+                                }
+                            }
+
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                val btnLabel = slide.buttonLabel
+                                Button(
+                                    onClick = {
+                                        slide.action?.invoke() ?: run {
+                                            // no-op fallback
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8BD2), contentColor = Color.Black)
+                                ) {
+                                    Text(btnLabel)
+                                }
+                            }
+                        }
+                    }
                 }
-                textSize = 18f
             }
-
-            val btn = MaterialButton(context).apply {
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                    topMargin = 12
-                    gravity = Gravity.CENTER
-                }
-                text = context.getString(com.studyassistant.R.string.open)
-            }
-
-            container.addView(tv)
-            container.addView(btn)
-
-            return PagerViewHolder(container, tv, btn)
         }
 
-        override fun getItemCount(): Int = pages.size
+        Spacer(Modifier.height(8.dp))
 
-        override fun onBindViewHolder(holder: PagerViewHolder, position: Int) {
-            holder.title.text = pages[position]
-            holder.button.setOnClickListener {
-                // show a simple Toast with the page title
-                Toast.makeText(context, pages[position], Toast.LENGTH_SHORT).show()
+        // Indicators
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            pages.forEachIndexed { idx, _ ->
+                val isSelected = idx == currentPage
+                val size = if (isSelected) 10.dp else 8.dp
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .size(size)
+                        .clip(RoundedCornerShape(50))
+                        .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                        .clickable {
+                            coroutineScope.launch { listState.animateScrollToItem(idx) }
+                        }
+                ) {}
             }
         }
     }
-    return viewPager
 }
-
-private class PagerViewHolder(itemView: View, val title: TextView, val button: MaterialButton) : RecyclerView.ViewHolder(itemView)

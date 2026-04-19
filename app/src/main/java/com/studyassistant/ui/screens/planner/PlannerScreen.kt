@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
@@ -39,7 +40,7 @@ fun PlannerScreen(
                 title = { Text("Study Planner", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -75,9 +76,9 @@ fun PlannerScreen(
                         DebugSourceBanner(source = plan.source)
                     }
 
-                    // Plan header
+                    // Plan header (show target exam from UI state)
                     item {
-                        PlanHeader(plan = plan)
+                        PlanHeader(plan = plan, targetExam = uiState.targetExam)
                     }
 
                     // Progress summary
@@ -195,7 +196,7 @@ private fun GeneratePlanSection(
 }
 
 @Composable
-private fun PlanHeader(plan: StudyPlan) {
+private fun PlanHeader(plan: StudyPlan, targetExam: String?) {
     val dateFormat = SimpleDateFormat("MMM dd", Locale.getDefault())
     Card(
         modifier = Modifier
@@ -224,6 +225,14 @@ private fun PlanHeader(plan: StudyPlan) {
                 Text(plan.title, style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer)
+                // If the UI provides a targetExam, display it as a subtitle
+                if (targetExam?.isNotBlank() == true) {
+                    Text(
+                        "Target exam: $targetExam",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
+                }
                 Text(
                     "${dateFormat.format(plan.startDate)} → ${dateFormat.format(plan.endDate)}",
                     style = MaterialTheme.typography.bodySmall,

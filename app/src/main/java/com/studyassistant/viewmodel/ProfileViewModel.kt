@@ -21,7 +21,6 @@ data class ProfileUiState(
     val weakAreas: List<WeakArea> = emptyList(),
 
     // Preferences
-    val selectedLanguage: AppLanguage = AppLanguage.ENGLISH,
     val selectedExam: String = "MDCAT",
 
     // Loading & Status
@@ -79,10 +78,7 @@ class ProfileViewModel @Inject constructor(
      * Load language preference from local storage
      */
     private fun loadPreferences() {
-        viewModelScope.launch {
-            val lang = localRepository.getLanguagePreference()
-            _uiState.update { it.copy(selectedLanguage = lang) }
-        }
+        // Language preference managed on the User object; no local UI toggle.
     }
 
     // ==================== Edit Mode Management ====================
@@ -158,7 +154,6 @@ class ProfileViewModel @Inject constructor(
                 name = state.editName,
                 bio = state.editBio,
                 photoUrl = state.selectedPhotoUri.ifEmpty { user.photoUrl },
-                preferredLanguage = state.selectedLanguage,
                 targetExam = state.selectedExam
             )
 
@@ -192,7 +187,6 @@ class ProfileViewModel @Inject constructor(
             _uiState.update { it.copy(isSaving = true) }
 
             val updatedUser = user.copy(
-                preferredLanguage = state.selectedLanguage,
                 targetExam = state.selectedExam
             )
 

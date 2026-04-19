@@ -69,8 +69,9 @@ fun NoteCard(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
+                        val displayTitle = friendlyNoteTitle(note)
                         Text(
-                            text = note.title,
+                            text = displayTitle,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,

@@ -7,9 +7,52 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+import java.io.FileInputStream
+import java.util.Properties
+
 android {
     namespace = "com.studyassistant"
     compileSdk = 35
+
+    // Load signing properties (key.properties) if present at project root; fall back to env vars.
+    val keystorePropertiesFile = rootProject.file("key.properties")
+    val keystoreProperties = Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    }
+    val keystoreStoreFilePath = keystoreProperties.getProperty("storeFile") ?: System.getenv("KEYSTORE_FILE")
+    val keystoreStoreFile = keystoreStoreFilePath?.let { file(it) }
+
+    signingConfigs {
+        create("release") {
+            // set if provided; avoid hard-failing when properties are missing
+            if (keystoreStoreFile != null) {
+                storeFile = keystoreStoreFile
+            } else {
+                // No release keystore provided. Fall back to the Android debug keystore for a locally-signed APK/AAB.
+                // NOTE: This is only for local testing. Do NOT use the debug key for Play Store uploads.
+                val debugKeystore = file(System.getProperty("user.home") + "/.android/debug.keystore")
+                if (debugKeystore.exists()) {
+                    storeFile = debugKeystore
+                    // Standard debug keystore credentials
+                    storePassword = "android"
+                    keyAlias = "androiddebugkey"
+                    keyPassword = "android"
+                } else {
+                    // keep empty strings so Gradle will fail with a clear message if nothing is provided
+                    storePassword = keystoreProperties.getProperty("storePassword") ?: System.getenv("KEYSTORE_PASSWORD") ?: ""
+                    keyAlias = keystoreProperties.getProperty("keyAlias") ?: System.getenv("KEY_ALIAS") ?: ""
+                    keyPassword = keystoreProperties.getProperty("keyPassword") ?: System.getenv("KEY_PASSWORD") ?: ""
+                }
+            }
+            // If a real keystore was provided, pick passwords/alias from properties or env vars
+            if (keystoreStoreFile != null) {
+                storePassword = keystoreProperties.getProperty("storePassword") ?: System.getenv("KEYSTORE_PASSWORD") ?: ""
+                keyAlias = keystoreProperties.getProperty("keyAlias") ?: System.getenv("KEY_ALIAS") ?: ""
+                keyPassword = keystoreProperties.getProperty("keyPassword") ?: System.getenv("KEY_PASSWORD") ?: ""
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.studyassistant"
@@ -28,6 +71,8 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Use release signingConfig when available. Make sure you provide key.properties or env vars.
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
