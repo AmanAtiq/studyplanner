@@ -539,7 +539,111 @@ Be precise, educational, and directly useful for exam preparation.""".trimIndent
             Result.failure(e)
         }
     }
+
+    override suspend fun generateFlashcards(
+        noteId: String,
+        userId: String,
+        content: String,
+        language: AppLanguage
+    ): Result<List<Flashcard>> {
+        return try {
+            if (Constants.GEMINI_API_KEY.isBlank()) return localFlashcards(noteId, userId, content)
+
+            val result = withTimeoutOrNull(30_000) {
+                val lang = if (language == AppLanguage.URDU) "Respond in Urdu (اردو)." else "Respond in English."
+                val response = apiService.generateContent(
+                    model = Constants.GEMINI_MODEL,
+                    apiKey = Constants.GEMINI_API_KEY,
+                    request = GeminiRequest(
+                        systemInstruction = GeminiContent(parts = listOf(GeminiPart(
+                            text = "You are a flashcard generator for students. $lang IMPORTANT: Respond ONLY with a valid JSON array."
+                        ))),
+                        contents = listOf(GeminiContent(role = "user", parts = listOf(GeminiPart(
+                            text = """Generate 8-12 flashcards from this study content.
+Return JSON array with this exact structure:
+[{"front": "question or term", "back": "answer or definition"}]
+Content: $content""".trimIndent()
+                        )))),
+                        generationConfig = GeminiGenerationConfig(maxOutputTokens = 2048, temperature = 0.3, responseMimeType = "application/json")
+                    )
+                )
+                val rawJson = response.firstTextOrEmpty().trim()
+                gson.fromJson(rawJson, Array<FlashcardDto>::class.java)
+            }
+
+            if (result == null || result.isEmpty()) return localFlashcards(noteId, userId, content)
+
+            val cards = result.map { dto ->
+                Flashcard(id = UUID.randomUUID().toString(), noteId = noteId, userId = userId, front = dto.front, back = dto.back)
+            }
+            Result.success(cards)
+        } catch (e: Exception) {
+            Log.e("AIRepo", "generateFlashcards error: ${e.message}")
+            localFlashcards(noteId, userId, content)
+        }
+    }
+
+    private fun localFlashcards(noteId: String, userId: String, content: String): Result<List<Flashcard>> {
+        val sentences = content.split(Regex("(?<=[.!?])\\s+")).filter { it.length > 20 }.take(8)
+        val cards = sentences.mapIndexed { i, s ->
+            Flashcard(id = UUID.randomUUID().toString(), noteId = noteId, userId = userId,
+                front = "Key Point ${i + 1}", back = s.trim())
+        }
+        return Result.success(cards)
+    }
+
+    override suspend fun chatWithNote(
+        noteContent: String,
+        history: List<ChatMessage>,
+        userMessage: String
+    ): Result<String> {
+        return try {
+            if (Constants.GEMINI_API_KEY.isBlank()) {
+                return Result.success("I'm your AI study assistant! I don't have API access right now, but based on your note: \"${noteContent.take(200)}...\" — please ask me anything about this topic.")
+            }
+
+            val historyContents = history.takeLast(10).map { msg ->
+                GeminiContent(
+                    role = if (msg.role == ChatRole.USER) "user" else "model",
+                    parts = listOf(GeminiPart(text = msg.content))
+                )
+            }
+            val allContents = historyContents + GeminiContent(role = "user", parts = listOf(GeminiPart(text = userMessage)))
+
+            val result = withTimeoutOrNull(30_000) {
+                val response = apiService.generateContent(
+                    model = Constants.GEMINI_MODEL,
+                    apiKey = Constants.GEMINI_API_KEY,
+                    request = GeminiRequest(
+                        systemInstruction = GeminiContent(parts = listOf(GeminiPart(
+                            text = """You are a helpful AI study assistant. The student is studying the following content:
+
+---
+${noteContent.take(3000)}
+---
+
+Answer the student's questions based on this content. Be concise, educational, and helpful. If the question is not related to the content, still try to help but mention that it's outside the notes.""".trimIndent()
+                        ))),
+                        contents = allContents,
+                        generationConfig = GeminiGenerationConfig(maxOutputTokens = 512, temperature = 0.4)
+                    )
+                )
+                response.firstTextOrEmpty().trim()
+            }
+
+            if (result.isNullOrBlank()) {
+                Result.success("I'm having trouble connecting right now. Please try again in a moment.")
+            } else {
+                Result.success(result)
+            }
+        } catch (e: Exception) {
+            Log.e("AIRepo", "chatWithNote error: ${e.message}")
+            Result.failure(e)
+        }
+    }
 }
+
+private data class FlashcardDto(val front: String = "", val back: String = "")
 
 private data class QuizQuestionDto(
     val question: String = "",

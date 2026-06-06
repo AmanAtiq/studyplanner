@@ -17,6 +17,8 @@ data class UploadUiState(
     val title: String = "",
     val content: String = "",
     val summary: String = "",
+    val selectedSubjectId: String = "",
+    val subjects: List<com.studyassistant.domain.model.Subject> = emptyList(),
     val isUploading: Boolean = false,
     val isSummarizing: Boolean = false,
     val isSuccess: Boolean = false,
@@ -36,8 +38,22 @@ class UploadViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(UploadUiState())
     val uiState: StateFlow<UploadUiState> = _uiState.asStateFlow()
 
+    init {
+        loadSubjects()
+    }
+
+    private fun loadSubjects() {
+        val userId = firebaseRepository.getCurrentUser()?.id ?: return
+        viewModelScope.launch {
+            firebaseRepository.getSubjects(userId).collect { subjects ->
+                _uiState.update { it.copy(subjects = subjects) }
+            }
+        }
+    }
+
     fun onTitleChange(v: String) = _uiState.update { it.copy(title = v) }
     fun onContentChange(v: String) = _uiState.update { it.copy(content = v) }
+    fun onSubjectSelected(subjectId: String) = _uiState.update { it.copy(selectedSubjectId = subjectId) }
     fun setSelectedFile(name: String?, bytesSize: Int) = _uiState.update { it.copy(selectedFileName = name, selectedFileBytesSize = bytesSize) }
 
     /**
@@ -65,7 +81,8 @@ class UploadViewModel @Inject constructor(
                     content = state.content,
                     fileBytes = fileBytes,
                     fileName = fileName,
-                    fileType = if (fileName?.endsWith(".pdf", true) == true) FileType.PDF else FileType.TEXT
+                    fileType = if (fileName?.endsWith(".pdf", true) == true) FileType.PDF else FileType.TEXT,
+                    subjectId = state.selectedSubjectId
                 )
             }
 

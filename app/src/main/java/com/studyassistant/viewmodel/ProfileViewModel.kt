@@ -19,6 +19,7 @@ data class ProfileUiState(
     val user: User? = null,
     val quizHistory: List<Quiz> = emptyList(),
     val weakAreas: List<WeakArea> = emptyList(),
+    val badges: List<Badge> = emptyList(),
 
     // Preferences
     val selectedExam: String = "MDCAT",
@@ -71,6 +72,10 @@ class ProfileViewModel @Inject constructor(
             firebaseRepository.getQuizHistory(user.id).collect { history ->
                 _uiState.update { it.copy(quizHistory = history) }
             }
+        }
+        viewModelScope.launch {
+            val badges = firebaseRepository.getEarnedBadges(user.id)
+            _uiState.update { it.copy(badges = badges) }
         }
     }
 

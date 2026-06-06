@@ -33,9 +33,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.studyassistant.domain.model.Badge
 import com.studyassistant.ui.components.*
 import com.studyassistant.ui.theme.*
 import com.studyassistant.util.Constants
@@ -163,6 +165,12 @@ fun ProfileScreen(
                     )
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+                    // Badges section
+                    if (uiState.badges.isNotEmpty()) {
+                        BadgesSection(badges = uiState.badges)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    }
 
                     // Weak Areas Detection Section
                     val weakAreas = viewModel.detectWeakAreas()
@@ -472,6 +480,68 @@ private fun ExamSelector(selected: String, onSelect: (String) -> Unit) {
                     { Icon(Icons.Default.Check, contentDescription = null,
                         modifier = Modifier.size(16.dp)) }
                 } else null
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun BadgesSection(badges: List<Badge>) {
+    val earned = badges.count { it.isEarned }
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Badges",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+            )
+            Text(
+                "$earned / ${badges.size}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            badges.forEach { badge -> BadgeChip(badge = badge) }
+        }
+    }
+}
+
+@Composable
+private fun BadgeChip(badge: Badge) {
+    val containerColor = if (badge.isEarned)
+        MaterialTheme.colorScheme.primaryContainer
+    else
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+    val contentAlpha = if (badge.isEarned) 1f else 0.4f
+
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(if (badge.isEarned) 2.dp else 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(badge.emoji, style = MaterialTheme.typography.headlineSmall.copy(
+                color = Color.Unspecified.copy(alpha = contentAlpha)))
+            Text(
+                badge.name,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (badge.isEarned) FontWeight.SemiBold else FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = contentAlpha),
+                textAlign = TextAlign.Center
             )
         }
     }

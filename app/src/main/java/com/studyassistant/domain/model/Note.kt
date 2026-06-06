@@ -13,6 +13,7 @@ data class Note(
     val language: AppLanguage = AppLanguage.ENGLISH,
     val fileUrl: String = "",
     val fileType: FileType = FileType.TEXT,
+    val subjectId: String = "",
     val createdAt: Date = Date(),
     val updatedAt: Date = Date()
 )

@@ -32,6 +32,33 @@ class LocalRepositoryImpl @Inject constructor(
         store.deleteNote(noteId)
     }
 
+    override suspend fun getCachedNotesBySubject(subjectId: String): Flow<List<Note>> =
+        combine(store.notesFlow(), store.settings) { notes, settings ->
+            val currentUserId = settings.currentUserId
+            if (currentUserId == null) emptyList()
+            else notes.filter { it.userId == currentUserId && it.subjectId == subjectId }
+        }
+
+    override suspend fun assignSubjectToNote(noteId: String, subjectId: String) {
+        val note = getCachedNoteById(noteId)
+        if (note != null) {
+            cacheNote(note.copy(subjectId = subjectId))
+        }
+    }
+
+    override suspend fun assignBadgeToNote(noteId: String, badgeId: String) {
+        // Badge assignment is handled through the database
+        // This is a placeholder for future implementation with actual DB
+    }
+
+    override suspend fun removeBadgeFromNote(noteId: String, badgeId: String) {
+        // Badge removal is handled through the database
+        // This is a placeholder for future implementation with actual DB
+    }
+
+    override suspend fun getBadgesForNote(noteId: String): Flow<List<String>> =
+        store.notesFlow().map { _ -> emptyList() }
+
     override suspend fun cacheQuiz(quiz: Quiz) {
         store.saveQuiz(quiz)
     }

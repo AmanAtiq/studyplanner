@@ -1,8 +1,10 @@
 package com.studyassistant.ui.components
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -35,8 +37,10 @@ fun StudyBottomBar(
     val items = listOf(
         BottomNavItem("home", "Home", Icons.Default.Home),
         BottomNavItem("lectures", "Lectures", Icons.Default.Book),
-        BottomNavItem("quizzes", "Marks", Icons.Default.Analytics),
-        BottomNavItem("settings", "Settings", Icons.Default.Settings)
+        BottomNavItem("study_groups", "Groups", Icons.Default.Groups),
+        BottomNavItem("leaderboard", "Ranks", Icons.Default.EmojiEvents),
+        BottomNavItem("grades", "Grades", Icons.Default.Grade),
+        BottomNavItem("settings", "Profile", Icons.Default.Settings)
     )
 
     NavigationBar(

@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
+import android.graphics.Color as AndroidColor
 import com.studyassistant.domain.model.*
 import com.studyassistant.ui.components.*
 import com.studyassistant.viewmodel.HomeViewModel
@@ -31,6 +32,10 @@ fun HomeScreen(
     onNavigateToPlanner: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToQuizzes: () -> Unit,
+    onNavigateToGrades: () -> Unit,
+    onNavigateToAnalytics: () -> Unit,
+    onNavigateToLeaderboard: () -> Unit,
+    onNavigateToStudyGroups: () -> Unit,
     onNavigateToNoteDetail: (String) -> Unit,
     onNavigateToQuiz: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
@@ -57,7 +62,33 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    Spacer(Modifier.width(8.dp))
+                    // Streak badge
+                    val streak = uiState.streak.currentStreak
+                    if (streak > 0) {
+                        Surface(
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                            color = Color(0xFFFFD700).copy(alpha = 0.2f),
+                            modifier = Modifier.border(1.dp, Color(0xFFFFD700).copy(alpha = 0.5f), androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text("🔥", style = MaterialTheme.typography.labelMedium)
+                                Text(
+                                    "$streak",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE65100)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    IconButton(onClick = onNavigateToGrades) {
+                        Icon(Icons.Default.Grade, contentDescription = "Grades", modifier = Modifier.size(26.dp))
+                    }
                     IconButton(onClick = onNavigateToQuizzes) {
                         Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Quizzes", modifier = Modifier.size(26.dp))
                     }
@@ -82,6 +113,31 @@ fun HomeScreen(
         }
     ) { padding ->
         ScreenBackground {
+            // Add subject dialog
+            if (uiState.showAddSubjectDialog) {
+                AlertDialog(
+                    onDismissRequest = { viewModel.hideAddSubjectDialog() },
+                    title = { Text("New Subject") },
+                    text = {
+                        OutlinedTextField(
+                            value = uiState.newSubjectName,
+                            onValueChange = { viewModel.setNewSubjectName(it) },
+                            label = { Text("Subject name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { viewModel.addSubject() }, enabled = uiState.newSubjectName.isNotBlank()) {
+                            Text("Add")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { viewModel.hideAddSubjectDialog() }) { Text("Cancel") }
+                    }
+                )
+            }
+
             // Show delete confirmation dialog if needed
             val pendingId = uiState.pendingDeleteNoteId
             if (pendingId != null) {
@@ -119,7 +175,20 @@ fun HomeScreen(
                 item {
                     QuickActionsRow(
                         onUpload = onNavigateToUpload,
-                        onPlanner = onNavigateToPlanner
+                        onPlanner = onNavigateToPlanner,
+                        onAnalytics = onNavigateToAnalytics,
+                        onLeaderboard = onNavigateToLeaderboard,
+                        onStudyGroups = onNavigateToStudyGroups
+                    )
+                }
+
+                // Subject filter row
+                item {
+                    SubjectFilterRow(
+                        subjects = uiState.subjects,
+                        selectedSubjectId = uiState.selectedSubjectId,
+                        onSelectSubject = { viewModel.selectSubject(it) },
+                        onAddSubject = { viewModel.showAddSubjectDialog() }
                     )
                 }
 
@@ -205,31 +274,65 @@ fun HomeScreen(
 @Composable
 private fun QuickActionsRow(
     onUpload: () -> Unit,
-    onPlanner: () -> Unit
+    onPlanner: () -> Unit,
+    onAnalytics: () -> Unit,
+    onLeaderboard: () -> Unit,
+    onStudyGroups: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            QuickActionCard(
+                title = "Upload Note",
+                subtitle = "AI Summary",
+                icon = Icons.Default.Upload,
+                color = Color(0xFF87CEFA),
+                textColor = Color.Black,
+                onClick = onUpload,
+                modifier = Modifier.weight(1f).border(1.dp, Color.Black, RoundedCornerShape(16.dp))
+            )
+            QuickActionCard(
+                title = "Study Planner",
+                subtitle = "AI Plan",
+                icon = Icons.Default.CalendarMonth,
+                color = Color(0xFFB7A1E2),
+                textColor = Color.Black,
+                onClick = onPlanner,
+                modifier = Modifier.weight(1f).border(1.dp, Color.Black, RoundedCornerShape(16.dp))
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            QuickActionCard(
+                title = "Analytics",
+                subtitle = "Performance",
+                icon = Icons.Default.Analytics,
+                color = Color(0xFFA8E6CF),
+                textColor = Color.Black,
+                onClick = onAnalytics,
+                modifier = Modifier.weight(1f).border(1.dp, Color.Black, RoundedCornerShape(16.dp))
+            )
+            QuickActionCard(
+                title = "Leaderboard",
+                subtitle = "Rankings",
+                icon = Icons.Default.EmojiEvents,
+                color = Color(0xFFFFD166),
+                textColor = Color.Black,
+                onClick = onLeaderboard,
+                modifier = Modifier.weight(1f).border(1.dp, Color.Black, RoundedCornerShape(16.dp))
+            )
+        }
         QuickActionCard(
-            title = "Upload Note",
-            subtitle = "AI Summary",
-            icon = Icons.Default.Upload,
-            color = Color(0xFF87CEFA), // Light Sky Blue
+            title = "Study Groups",
+            subtitle = "Collaborate",
+            icon = Icons.Default.Groups,
+            color = Color(0xFFFFB3C7),
             textColor = Color.Black,
-            onClick = onUpload,
-            modifier = Modifier.weight(1f).border(1.dp, Color.Black, RoundedCornerShape(16.dp))
-        )
-        QuickActionCard(
-            title = "Study Planner",
-            subtitle = "AI Plan",
-            icon = Icons.Default.CalendarMonth,
-            color = Color(0xFFB7A1E2), // Purple
-            textColor = Color.Black,
-            onClick = onPlanner,
-            modifier = Modifier.weight(1f).border(1.dp, Color.Black, RoundedCornerShape(16.dp))
+            onClick = onStudyGroups,
+            modifier = Modifier.fillMaxWidth().border(1.dp, Color.Black, RoundedCornerShape(16.dp))
         )
     }
 }
@@ -282,6 +385,57 @@ private fun WeakAreasSection(weakAreas: List<WeakArea>) {
             items(weakAreas) { area ->
                 WeakAreaChip(weakArea = area)
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SubjectFilterRow(
+    subjects: List<Subject>,
+    selectedSubjectId: String?,
+    onSelectSubject: (String?) -> Unit,
+    onAddSubject: () -> Unit
+) {
+    if (subjects.isEmpty()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Subjects:", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+            AssistChip(onClick = onAddSubject, label = { Text("+ Add Subject") })
+        }
+        return
+    }
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            FilterChip(
+                selected = selectedSubjectId == null,
+                onClick = { onSelectSubject(null) },
+                label = { Text("All") }
+            )
+        }
+        items(subjects) { subject ->
+            val color = try {
+                Color(AndroidColor.parseColor(subject.colorHex))
+            } catch (_: Exception) { Color(0xFF87CEFA) }
+            FilterChip(
+                selected = selectedSubjectId == subject.id,
+                onClick = { onSelectSubject(subject.id) },
+                label = { Text("${subject.emoji} ${subject.name}") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = color.copy(alpha = 0.25f),
+                    selectedLabelColor = MaterialTheme.colorScheme.onBackground
+                )
+            )
+        }
+        item {
+            AssistChip(onClick = onAddSubject, label = { Text("+") })
         }
     }
 }

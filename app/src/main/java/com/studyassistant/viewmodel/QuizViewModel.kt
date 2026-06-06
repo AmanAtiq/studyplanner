@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import java.util.Date
 import javax.inject.Inject
 
 data class QuizUiState(
@@ -22,7 +23,8 @@ data class QuizUiState(
     val isReviewMode: Boolean = false,
     val score: Int = 0,
     val language: AppLanguage = AppLanguage.ENGLISH,
-    val error: String? = null
+    val error: String? = null,
+    val newlyEarnedBadges: List<Badge> = emptyList()
 )
 
 @HiltViewModel
@@ -144,8 +146,59 @@ class QuizViewModel @Inject constructor(
             val completed = quiz.copy(score = state.score, completed = true)
             firebaseRepository.saveQuiz(completed)
             localRepository.cacheQuiz(completed)
-            _uiState.update { it.copy(quiz = completed, isFinished = true) }
+
+            val user = firebaseRepository.getCurrentUser()
+            if (user != null) {
+                val total = completed.questions.size
+                val pct = if (total > 0) (state.score * 100) / total else 0
+                val grade = gradeFromPercentage(pct)
+                val note = localRepository.getCachedNoteById(quiz.noteId)
+                    ?: firebaseRepository.getNoteById(quiz.noteId).getOrNull()
+
+                firebaseRepository.updateStreak(user.id)
+                firebaseRepository.saveGradeEntry(
+                    GradeEntry(
+                        userId = user.id,
+                        quizId = completed.id,
+                        noteId = quiz.noteId,
+                        noteTitle = note?.title ?: completed.title,
+                        subjectId = note?.subjectId ?: "",
+                        score = state.score,
+                        total = total,
+                        percentage = pct,
+                        grade = grade,
+                        createdAt = Date()
+                    )
+                )
+
+                val newBadges = evaluateBadges(user.id, pct, grade)
+                _uiState.update { it.copy(quiz = completed, isFinished = true, newlyEarnedBadges = newBadges) }
+            } else {
+                _uiState.update { it.copy(quiz = completed, isFinished = true) }
+            }
         }
+    }
+
+    private suspend fun evaluateBadges(userId: String, pct: Int, grade: String): List<Badge> {
+        val alreadyEarned = firebaseRepository.getEarnedBadges(userId).filter { it.isEarned }.map { it.id }.toSet()
+        val quizCount = firebaseRepository.getCompletedQuizCount(userId)
+        val gradeHistory = firebaseRepository.getGradeHistory(userId).first()
+        val aCount = gradeHistory.count { it.grade == "A" || it.grade == "A+" }
+
+        val toAward = mutableListOf<String>()
+        if (quizCount >= 1 && "first_quiz" !in alreadyEarned) toAward += "first_quiz"
+        if (pct == 100 && "perfect_score" !in alreadyEarned) toAward += "perfect_score"
+        if (quizCount >= 5 && "five_quizzes" !in alreadyEarned) toAward += "five_quizzes"
+        if (quizCount >= 10 && "ten_quizzes" !in alreadyEarned) toAward += "ten_quizzes"
+        if ((grade == "A" || grade == "A+") && "first_a" !in alreadyEarned) toAward += "first_a"
+        if (aCount >= 3 && "three_as" !in alreadyEarned) toAward += "three_as"
+
+        val newlyEarned = mutableListOf<Badge>()
+        for (id in toAward) {
+            firebaseRepository.awardBadge(userId, id)
+            BadgeDefinitions.byId(id)?.copy(earnedAt = Date())?.let { newlyEarned += it }
+        }
+        return newlyEarned
     }
 
     fun clearError() = _uiState.update { it.copy(error = null) }

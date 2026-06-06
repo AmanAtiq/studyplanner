@@ -9,16 +9,23 @@ import com.studyassistant.repository.LocalRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
+import com.studyassistant.domain.model.StreakData
 
 data class HomeUiState(
     val notes: List<Note> = emptyList(),
+    val allNotes: List<Note> = emptyList(),
     val weakAreas: List<WeakArea> = emptyList(),
     val currentUser: User? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
-    // Language selection removed from UI
-    val pendingDeleteNoteId: String? = null
+    val pendingDeleteNoteId: String? = null,
+    val subjects: List<Subject> = emptyList(),
+    val selectedSubjectId: String? = null,
+    val showAddSubjectDialog: Boolean = false,
+    val newSubjectName: String = "",
+    val streak: StreakData = StreakData()
 )
 
 @HiltViewModel
@@ -34,7 +41,8 @@ class HomeViewModel @Inject constructor(
     init {
         loadCurrentUser()
         loadNotes()
-        // loadLanguagePreference() removed
+        loadSubjects()
+        loadStreak()
     }
 
     private fun loadCurrentUser() {
@@ -49,8 +57,18 @@ class HomeViewModel @Inject constructor(
             localRepository.getCachedNotes()
                 .catch { e -> _uiState.update { it.copy(error = e.message, isLoading = false) } }
                 .collect { notes ->
-                    _uiState.update { it.copy(notes = notes, isLoading = false) }
+                    val filtered = filterNotes(notes, _uiState.value.selectedSubjectId)
+                    _uiState.update { it.copy(allNotes = notes, notes = filtered, isLoading = false) }
                 }
+        }
+    }
+
+    private fun loadSubjects() {
+        val userId = firebaseRepository.getCurrentUser()?.id ?: return
+        viewModelScope.launch {
+            firebaseRepository.getSubjects(userId).collect { subjects ->
+                _uiState.update { it.copy(subjects = subjects) }
+            }
         }
     }
 
@@ -63,7 +81,47 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // Language toggle removed from ViewModel
+    private fun loadStreak() {
+        val userId = firebaseRepository.getCurrentUser()?.id ?: return
+        val streak = firebaseRepository.getStreak(userId)
+        _uiState.update { it.copy(streak = streak) }
+    }
+
+    private fun filterNotes(notes: List<Note>, subjectId: String?): List<Note> =
+        if (subjectId == null) notes else notes.filter { it.subjectId == subjectId }
+
+    fun selectSubject(id: String?) {
+        val filtered = filterNotes(_uiState.value.allNotes, id)
+        _uiState.update { it.copy(selectedSubjectId = id, notes = filtered) }
+    }
+
+    fun showAddSubjectDialog() = _uiState.update { it.copy(showAddSubjectDialog = true, newSubjectName = "") }
+    fun hideAddSubjectDialog() = _uiState.update { it.copy(showAddSubjectDialog = false, newSubjectName = "") }
+    fun setNewSubjectName(name: String) = _uiState.update { it.copy(newSubjectName = name) }
+
+    fun addSubject() {
+        val name = _uiState.value.newSubjectName.trim()
+        val userId = _uiState.value.currentUser?.id ?: return
+        if (name.isBlank()) return
+        val existing = _uiState.value.subjects
+        val colorHex = SUBJECT_COLORS[existing.size % SUBJECT_COLORS.size]
+        val emoji = SUBJECT_EMOJIS[existing.size % SUBJECT_EMOJIS.size]
+        viewModelScope.launch {
+            val subject = Subject(id = UUID.randomUUID().toString(), userId = userId, name = name, colorHex = colorHex, emoji = emoji)
+            firebaseRepository.saveSubject(subject)
+            if (_uiState.value.subjects.isEmpty()) {
+                firebaseRepository.awardBadge(userId, "first_subject")
+            }
+            hideAddSubjectDialog()
+        }
+    }
+
+    fun deleteSubject(subjectId: String) {
+        viewModelScope.launch {
+            firebaseRepository.deleteSubject(subjectId)
+            if (_uiState.value.selectedSubjectId == subjectId) selectSubject(null)
+        }
+    }
 
     fun deleteNote(noteId: String) {
         viewModelScope.launch {
@@ -72,12 +130,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // Request deletion: shows confirmation in UI
     fun requestDeleteNote(noteId: String) {
         _uiState.update { it.copy(pendingDeleteNoteId = noteId) }
     }
 
-    // Called when the user confirms deletion
     fun confirmDeleteNote() {
         val id = _uiState.value.pendingDeleteNoteId ?: return
         _uiState.update { it.copy(pendingDeleteNoteId = null) }

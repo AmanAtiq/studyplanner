@@ -176,6 +176,52 @@ fun UploadScreen(
                     Text("Selected: ${selectedFileName} (${selectedFileBytes?.size ?: 0} bytes)")
                 }
 
+                // Subject selector
+                var showSubjectMenu by remember { mutableStateOf(false) }
+                val selectedSubject = uiState.subjects.find { it.id == uiState.selectedSubjectId }
+
+                Box {
+                    OutlinedButton(
+                        onClick = { showSubjectMenu = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(Icons.Default.Category, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(selectedSubject?.name ?: "Select Subject (Optional)")
+                        Spacer(Modifier.weight(1f))
+                        Icon(Icons.Default.ExpandMore, contentDescription = null)
+                    }
+
+                    DropdownMenu(
+                        expanded = showSubjectMenu,
+                        onDismissRequest = { showSubjectMenu = false },
+                        modifier = Modifier.fillMaxWidth(0.9f)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("No Subject") },
+                            onClick = {
+                                viewModel.onSubjectSelected("")
+                                showSubjectMenu = false
+                            }
+                        )
+                        uiState.subjects.forEach { subject ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(subject.emoji, modifier = Modifier.width(24.dp))
+                                        Text(subject.name)
+                                    }
+                                },
+                                onClick = {
+                                    viewModel.onSubjectSelected(subject.id)
+                                    showSubjectMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
+
                 // Title field
                 OutlinedTextField(
                     value = uiState.title,

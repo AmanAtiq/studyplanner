@@ -16,7 +16,8 @@ class UploadNoteUseCase @Inject constructor(
         content: String,
         fileBytes: ByteArray? = null,
         fileName: String? = null,
-        fileType: FileType = FileType.TEXT
+        fileType: FileType = FileType.TEXT,
+        subjectId: String = ""
     ): Result<Note> {
         var fileUrl = ""
         if (fileBytes != null && fileName != null) {
@@ -32,7 +33,8 @@ class UploadNoteUseCase @Inject constructor(
             title = title,
             originalContent = content,
             fileUrl = fileUrl,
-            fileType = fileType
+            fileType = fileType,
+            subjectId = subjectId
         )
 
         return firebaseRepository.saveNote(note).also { result ->

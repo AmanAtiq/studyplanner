@@ -10,6 +10,15 @@ interface LocalRepository {
     suspend fun getCachedNotes(): Flow<List<Note>>
     suspend fun getCachedNoteById(noteId: String): Note?
     suspend fun deleteCachedNote(noteId: String)
+    suspend fun getCachedNotesBySubject(subjectId: String): Flow<List<Note>>
+
+    // Note-Subject assignment
+    suspend fun assignSubjectToNote(noteId: String, subjectId: String)
+
+    // Note-Badge assignment
+    suspend fun assignBadgeToNote(noteId: String, badgeId: String)
+    suspend fun removeBadgeFromNote(noteId: String, badgeId: String)
+    suspend fun getBadgesForNote(noteId: String): Flow<List<String>>
 
     // Quiz cache
     suspend fun cacheQuiz(quiz: Quiz)

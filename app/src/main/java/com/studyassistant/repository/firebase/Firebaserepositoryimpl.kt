@@ -1,10 +1,7 @@
 package com.studyassistant.repository.firebase
 
 import com.studyassistant.data.store.JsonPersistenceStore
-import com.studyassistant.domain.model.Note
-import com.studyassistant.domain.model.Quiz
-import com.studyassistant.domain.model.StudyPlan
-import com.studyassistant.domain.model.User
+import com.studyassistant.domain.model.*
 import com.studyassistant.repository.FirebaseRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -57,4 +54,44 @@ class FirebaseRepositoryImpl @Inject constructor(
 
     override suspend fun updateUser(user: User): Result<User> =
         store.updateUser(user)
+
+    override suspend fun saveSubject(subject: Subject): Result<Subject> =
+        store.saveSubject(subject)
+
+    override suspend fun deleteSubject(subjectId: String): Result<Unit> =
+        store.deleteSubject(subjectId)
+
+    override suspend fun getSubjects(userId: String): Flow<List<Subject>> =
+        store.subjectsFlow().map { list -> list.filter { it.userId == userId } }
+
+    override suspend fun saveGradeEntry(entry: GradeEntry): Result<GradeEntry> =
+        store.saveGrade(entry)
+
+    override suspend fun getGradeHistory(userId: String): Flow<List<GradeEntry>> =
+        store.gradesFlow().map { list -> list.filter { it.userId == userId }.sortedByDescending { it.createdAt } }
+
+    override fun getAllGradeHistory(): Flow<List<GradeEntry>> =
+        store.gradesFlow().map { list -> list.sortedByDescending { it.createdAt } }
+
+    override fun getUsers(): Flow<List<User>> =
+        store.authUsers.map { records -> records.map { it.user } }
+
+    override suspend fun awardBadge(userId: String, badgeId: String): Result<Unit> =
+        store.awardBadge(userId, badgeId)
+
+    override suspend fun getEarnedBadges(userId: String): List<Badge> =
+        store.getEarnedBadges(userId)
+
+    override suspend fun getCompletedQuizCount(userId: String): Int =
+        store.quizzesFlow().value.count { it.userId == userId && it.completed }
+
+    override fun getStreak(userId: String): StreakData = store.getStreak(userId)
+
+    override suspend fun updateStreak(userId: String): StreakData = store.updateStreak(userId)
+
+    override suspend fun saveFlashcards(cards: List<Flashcard>): Result<List<Flashcard>> =
+        store.saveFlashcards(cards)
+
+    override fun getFlashcardsForNote(noteId: String): List<Flashcard> =
+        store.getFlashcardsForNote(noteId)
 }

@@ -13,6 +13,7 @@ data class NoteEntity(
     val language: String,
     val fileUrl: String,
     val fileType: String,
+    val subjectId: String = "",
     val createdAt: Long,
     val updatedAt: Long
 )

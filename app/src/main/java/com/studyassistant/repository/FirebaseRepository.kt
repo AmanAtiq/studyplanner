@@ -28,4 +28,28 @@ interface FirebaseRepository {
 
     // User
     suspend fun updateUser(user: User): Result<User>
+
+    // Subjects
+    suspend fun saveSubject(subject: Subject): Result<Subject>
+    suspend fun deleteSubject(subjectId: String): Result<Unit>
+    suspend fun getSubjects(userId: String): Flow<List<Subject>>
+
+    // Grades
+    suspend fun saveGradeEntry(entry: GradeEntry): Result<GradeEntry>
+    suspend fun getGradeHistory(userId: String): Flow<List<GradeEntry>>
+    fun getAllGradeHistory(): Flow<List<GradeEntry>>
+    fun getUsers(): Flow<List<User>>
+
+    // Badges
+    suspend fun awardBadge(userId: String, badgeId: String): Result<Unit>
+    suspend fun getEarnedBadges(userId: String): List<Badge>
+    suspend fun getCompletedQuizCount(userId: String): Int
+
+    // Streak
+    fun getStreak(userId: String): StreakData
+    suspend fun updateStreak(userId: String): StreakData
+
+    // Flashcards
+    suspend fun saveFlashcards(cards: List<Flashcard>): Result<List<Flashcard>>
+    fun getFlashcardsForNote(noteId: String): List<Flashcard>
 }
