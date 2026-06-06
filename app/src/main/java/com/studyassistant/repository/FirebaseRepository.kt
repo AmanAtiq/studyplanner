@@ -9,6 +9,8 @@ interface FirebaseRepository {
     suspend fun signIn(email: String, password: String): Result<User>
     suspend fun signUp(name: String, email: String, password: String): Result<User>
     suspend fun signOut()
+    suspend fun signInWithGoogle(idToken: String): Result<User>   // ← ADD THIS
+
     fun getCurrentUser(): User?
 
     // Notes

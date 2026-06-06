@@ -1,26 +1,44 @@
 {
   "project_info": {
-    "project_number": "333306803602",
-    "project_id": "aistudyplanner-a287a",
-    "storage_bucket": "aistudyplanner-a287a.firebasestorage.app"
+    "project_number": "22334162419",
+    "project_id": "aistudenthelper-1ca6b",
+    "storage_bucket": "aistudenthelper-1ca6b.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:333306803602:android:24daacc97ccb3a3ba93d4b",
+        "mobilesdk_app_id": "1:22334162419:android:6e951df797e513cb883e86",
         "android_client_info": {
           "package_name": "com.studyassistant"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "22334162419-2i5mjtdhsc7roin87gg4lotc90lbd5v4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.studyassistant",
+            "certificate_hash": "71e5e4fa9f39551033f6fb8d3e35cb11313002cc"
+          }
+        },
+        {
+          "client_id": "22334162419-2en0ngkqgibq3rhrkmt8q9hn05k5clk7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyBqP0nA-QsmgvibeCWLev4gJKq5mJHOa4Y"
+          "current_key": "AIzaSyB4PIT5SxN0_VYRpC5NtbxpXvpNkB1MEnE"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "22334162419-2en0ngkqgibq3rhrkmt8q9hn05k5clk7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

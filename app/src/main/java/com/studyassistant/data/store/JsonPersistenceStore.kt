@@ -1,5 +1,4 @@
 package com.studyassistant.data.store
-
 import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -25,7 +24,10 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import dagger.hilt.android.qualifiers.ApplicationContext
-
+import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.auth.ktx.auth
+import kotlinx.coroutines.tasks.await
 data class StoredAuthUser(
     val user: User,
     val password: String
@@ -123,7 +125,44 @@ class JsonPersistenceStore @Inject constructor(
         updateSettings(settingsFlow.value.copy(currentUserId = record.user.id))
         Result.success(record.user)
     }
+    suspend fun signInWithGoogle(idToken: String): Result<User> = mutex.withLock {
+        return try {
+            // 1. Exchange Google token with Firebase Auth
+            val firebaseCredential = GoogleAuthProvider.getCredential(idToken, null)
+            val result = Firebase.auth.signInWithCredential(firebaseCredential).await()
+            val firebaseUser = result.user
+                ?: return Result.failure(Exception("Google Sign-In failed. Try again."))
 
+            // 2. Check if this Google user already exists in local store
+            val existingRecord = authUsersFlow.value
+                .firstOrNull { it.user.id == firebaseUser.uid }
+
+            val user = if (existingRecord != null) {
+                // Already registered — just sign them in
+                existingRecord.user
+            } else {
+                // New Google user — create and save them same as signUp does
+                val newUser = User(
+                    id = firebaseUser.uid,
+                    name = firebaseUser.displayName ?: "Student",
+                    email = firebaseUser.email ?: "",
+                    createdAt = Date()
+                )
+                // Save with empty password since Google handles auth
+                val updatedUsers = authUsersFlow.value + StoredAuthUser(user = newUser, password = "")
+                authUsersFlow.value = updatedUsers
+                persist(authFile, updatedUsers)
+                newUser
+            }
+
+            // 3. Set as current logged-in user (same as signIn does)
+            updateSettings(settingsFlow.value.copy(currentUserId = user.id))
+            Result.success(user)
+
+        } catch (e: Exception) {
+            Result.failure(Exception("Google Sign-In failed: ${e.message}"))
+        }
+    }
     suspend fun signOut() = mutex.withLock {
         updateSettings(settingsFlow.value.copy(currentUserId = null))
     }

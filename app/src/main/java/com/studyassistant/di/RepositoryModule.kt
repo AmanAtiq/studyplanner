@@ -1,5 +1,6 @@
 package com.studyassistant.di
-
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.studyassistant.data.local.dao.StudyGroupDao
 import com.studyassistant.data.remote.AIApiService
 import com.studyassistant.data.store.JsonPersistenceStore
@@ -26,8 +27,12 @@ object RepositoryModule {
         AIRepositoryImpl(apiService)
 
     @Provides @Singleton
-    fun provideFirebaseRepository(store: JsonPersistenceStore): FirebaseRepository =
-        FirebaseRepositoryImpl(store)
+    fun provideFirebaseRepository(
+        store: JsonPersistenceStore,
+        auth: FirebaseAuth,
+        firestore: FirebaseFirestore
+    ): FirebaseRepository =
+        FirebaseRepositoryImpl(store, auth, firestore)
 
     @Provides @Singleton
     fun provideLocalRepository(store: JsonPersistenceStore): LocalRepository =

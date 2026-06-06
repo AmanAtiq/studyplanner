@@ -65,6 +65,8 @@ android {
         val localProps = com.android.build.gradle.internal.cxx.configure.gradleLocalProperties(rootDir, providers)
         val geminiKey = localProps.getProperty("GEMINI_API_KEY", localProps.getProperty("DEEPSEEK_API_KEY", ""))
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${localProps.getProperty("GOOGLE_WEB_CLIENT_ID", "")}\"")
+
     }
 
     buildTypes {
@@ -135,6 +137,10 @@ dependencies {
     // ML Kit Text Recognition (on-device)
     implementation("com.google.mlkit:text-recognition:16.0.0")
     implementation("com.google.mlkit:vision-common:16.0.0")
+    // Google Sign-In with Credential Manager
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 }
 
 kapt {
