@@ -31,24 +31,42 @@ class ChatViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
+    private var currentNoteId: String? = null
+
     fun loadNote(noteId: String) {
+        currentNoteId = noteId
+        val userId = firebaseRepository.getCurrentUser()?.id ?: return
+
         viewModelScope.launch {
+            // 1. Fetch updated Note details from Cloud and cache locally
+            launch {
+                firebaseRepository.getNoteById(noteId).onSuccess { remoteNote ->
+                    localRepository.cacheNote(remoteNote)
+                }
+            }
+
+            // 2. Observe Note details from Local DB (Fast UI update)
             val note = localRepository.getCachedNoteById(noteId)
                 ?: firebaseRepository.getNoteById(noteId).getOrNull()
-                ?: return@launch
-            val content = buildString {
-                if (note.summary.isNotBlank()) append(note.summary).append("\n\n")
-                if (note.originalContent.isNotBlank()) append(note.originalContent)
-            }.take(4000)
-            _uiState.update { it.copy(noteTitle = note.title.ifBlank { "Note" }, noteContent = content) }
+            
+            note?.let { n ->
+                val content = buildString {
+                    if (n.summary.isNotBlank()) append(n.summary).append("\n\n")
+                    if (n.originalContent.isNotBlank()) append(n.originalContent)
+                }.take(4000)
+                _uiState.update { it.copy(noteTitle = n.title.ifBlank { "Note" }, noteContent = content) }
+            }
 
-            // Welcome message
-            _uiState.update { state ->
-                state.copy(messages = listOf(ChatMessage(
-                    id = UUID.randomUUID().toString(),
-                    role = ChatRole.AI,
-                    content = "Hi! I've read \"${note.title.ifBlank { "your note" }}\". Ask me anything about it — I can explain concepts, quiz you, or help clarify anything."
-                )))
+            // 3. Real-time Cloud Sync: Fetch from Firebase and save to Room
+            launch {
+                firebaseRepository.getChatMessages(userId, noteId).collect { remoteMsgs ->
+                    remoteMsgs.forEach { localRepository.saveChatMessage(userId, noteId, it) }
+                }
+            }
+
+            // 4. UI Source of Truth: Observe local messages (works offline, updates when sync finishes)
+            localRepository.getChatMessages(userId, noteId).collect { messages ->
+                _uiState.update { it.copy(messages = messages) }
             }
         }
     }
@@ -57,25 +75,32 @@ class ChatViewModel @Inject constructor(
 
     fun sendMessage() {
         val text = _uiState.value.inputText.trim()
+        val noteId = currentNoteId ?: return
+        val userId = firebaseRepository.getCurrentUser()?.id ?: return
         if (text.isBlank() || _uiState.value.isLoading) return
 
         val userMsg = ChatMessage(id = UUID.randomUUID().toString(), role = ChatRole.USER, content = text)
-        _uiState.update { it.copy(messages = it.messages + userMsg, inputText = "", isLoading = true) }
-
+        
         viewModelScope.launch {
+            // Save user message locally and to Firebase
+            localRepository.saveChatMessage(userId, noteId, userMsg)
+            firebaseRepository.saveChatMessage(userId, noteId, userMsg)
+            
+            _uiState.update { it.copy(inputText = "", isLoading = true) }
+
             aiRepository.chatWithNote(
                 noteContent = _uiState.value.noteContent,
-                history = _uiState.value.messages.dropLast(0),
+                history = _uiState.value.messages,
                 userMessage = text
             ).fold(
                 onSuccess = { reply ->
                     val aiMsg = ChatMessage(id = UUID.randomUUID().toString(), role = ChatRole.AI, content = reply)
-                    _uiState.update { it.copy(messages = it.messages + aiMsg, isLoading = false) }
+                    localRepository.saveChatMessage(userId, noteId, aiMsg)
+                    firebaseRepository.saveChatMessage(userId, noteId, aiMsg)
+                    _uiState.update { it.copy(isLoading = false) }
                 },
                 onFailure = {
-                    val errMsg = ChatMessage(id = UUID.randomUUID().toString(), role = ChatRole.AI,
-                        content = "Sorry, I couldn't connect. Please try again.")
-                    _uiState.update { it.copy(messages = it.messages + errMsg, isLoading = false) }
+                    _uiState.update { it.copy(isLoading = false) }
                 }
             )
         }

@@ -2,17 +2,10 @@ package com.studyassistant.data.local.db
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
-import com.studyassistant.data.local.dao.NoteDao
-import com.studyassistant.data.local.dao.QuizDao
-import com.studyassistant.data.local.dao.StudyGroupDao
-import com.studyassistant.data.local.dao.StudyPlanDao
-import com.studyassistant.data.local.entity.GroupMessageEntity
-import com.studyassistant.data.local.entity.NoteEntity
-import com.studyassistant.data.local.entity.NoteBadgeCrossRef
-import com.studyassistant.data.local.entity.QuizEntity
-import com.studyassistant.data.local.entity.StudyGroupEntity
-import com.studyassistant.data.local.entity.StudyGroupMemberEntity
-import com.studyassistant.data.local.entity.StudyPlanEntity
+import androidx.room.TypeConverters
+import com.studyassistant.data.local.dao.*
+
+import com.studyassistant.data.local.entity.*
 
 @Database(
     entities = [
@@ -22,9 +15,14 @@ import com.studyassistant.data.local.entity.StudyPlanEntity
         StudyPlanEntity::class,
         StudyGroupEntity::class,
         StudyGroupMemberEntity::class,
-        GroupMessageEntity::class
+        GroupMessageEntity::class,
+        ChatMessageEntity::class,
+        GradeEntryEntity::class,
+        FlashcardEntity::class,
+        BadgeEntity::class
+
     ],
-    version = 4,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -32,4 +30,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun quizDao(): QuizDao
     abstract fun studyPlanDao(): StudyPlanDao
     abstract fun studyGroupDao(): StudyGroupDao
+    abstract fun chatMessageDao(): ChatMessageDao
+    abstract fun gradeEntryDao(): GradeEntryDao
+    abstract fun flashcardDao(): FlashcardDao
+    abstract fun badgeDao(): BadgeDao
+
 }

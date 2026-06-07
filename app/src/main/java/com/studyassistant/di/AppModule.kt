@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.room.Room
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.studyassistant.data.local.dao.StudyGroupDao
+import com.studyassistant.data.local.dao.*
+import com.studyassistant.data.local.dao.FlashcardDao
+
 import com.studyassistant.data.local.db.AppDatabase
 import dagger.Module
 import dagger.Provides
@@ -39,4 +41,24 @@ object AppModule {
     @Singleton
     fun provideStudyGroupDao(database: AppDatabase): StudyGroupDao =
         database.studyGroupDao()
+
+    @Provides
+    @Singleton
+    fun provideChatMessageDao(database: AppDatabase): ChatMessageDao =
+        database.chatMessageDao()
+
+    @Provides
+    @Singleton
+    fun provideGradeEntryDao(database: AppDatabase): GradeEntryDao =
+        database.gradeEntryDao()
+
+    @Provides
+    @Singleton
+    fun provideFlashcardDao(database: AppDatabase): FlashcardDao =
+        database.flashcardDao()
+
+    @Provides
+    @Singleton
+    fun provideBadgeDao(database: AppDatabase): BadgeDao =
+        database.badgeDao()
 }

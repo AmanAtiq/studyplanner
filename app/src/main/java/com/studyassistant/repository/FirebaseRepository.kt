@@ -9,7 +9,7 @@ interface FirebaseRepository {
     suspend fun signIn(email: String, password: String): Result<User>
     suspend fun signUp(name: String, email: String, password: String): Result<User>
     suspend fun signOut()
-    suspend fun signInWithGoogle(idToken: String): Result<User>   // ← ADD THIS
+    suspend fun signInWithGoogle(idToken: String): Result<User>
 
     fun getCurrentUser(): User?
 
@@ -41,6 +41,7 @@ interface FirebaseRepository {
     suspend fun getGradeHistory(userId: String): Flow<List<GradeEntry>>
     fun getAllGradeHistory(): Flow<List<GradeEntry>>
     fun getUsers(): Flow<List<User>>
+    suspend fun deleteGradeHistory(userId: String): Result<Unit>
 
     // Badges
     suspend fun awardBadge(userId: String, badgeId: String): Result<Unit>
@@ -54,4 +55,20 @@ interface FirebaseRepository {
     // Flashcards
     suspend fun saveFlashcards(cards: List<Flashcard>): Result<List<Flashcard>>
     fun getFlashcardsForNote(noteId: String): List<Flashcard>
+
+    // Chat
+    suspend fun saveChatMessage(userId: String, noteId: String, message: ChatMessage): Result<Unit>
+    fun getChatMessages(userId: String, noteId: String): Flow<List<ChatMessage>>
+
+    // Leaderboard
+    fun getLeaderboard(): Flow<List<LeaderboardEntry>>
+
+    // Study Groups
+    suspend fun saveStudyGroup(group: StudyGroup): Result<Unit>
+    suspend fun joinStudyGroup(groupId: String, member: StudyGroupMember): Result<Unit>
+    suspend fun sendGroupMessage(groupId: String, message: GroupMessage): Result<Unit>
+    fun getActiveStudyGroups(): Flow<List<StudyGroup>>
+    fun getGroupMessages(groupId: String): Flow<List<GroupMessage>>
+    fun getGroupMembers(groupId: String): Flow<List<StudyGroupMember>>
+    fun getMemberGroups(userId: String): Flow<List<StudyGroup>>
 }

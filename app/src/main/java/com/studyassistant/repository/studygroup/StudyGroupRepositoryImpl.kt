@@ -8,15 +8,18 @@ import com.studyassistant.domain.model.GroupMessage
 import com.studyassistant.domain.model.GroupMemberRole
 import com.studyassistant.domain.model.StudyGroup
 import com.studyassistant.domain.model.StudyGroupMember
+import com.studyassistant.repository.FirebaseRepository
 import com.studyassistant.repository.StudyGroupRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import java.util.UUID
 import javax.inject.Inject
 
 class StudyGroupRepositoryImpl @Inject constructor(
-    private val studyGroupDao: StudyGroupDao
+    private val studyGroupDao: StudyGroupDao,
+    private val firebaseRepository: FirebaseRepository
 ) : StudyGroupRepository {
 
     override suspend fun createGroup(
@@ -31,12 +34,12 @@ class StudyGroupRepositoryImpl @Inject constructor(
         val inviteLink = generateInviteLink(groupId)
         val now = System.currentTimeMillis()
 
-        val entity = StudyGroupEntity(
+        val group = StudyGroup(
             id = groupId,
             name = name,
             description = description,
             createdBy = userId,
-            createdAt = now,
+            createdAt = java.util.Date(now),
             inviteLink = inviteLink,
             isActive = true,
             isPrivate = isPrivate,
@@ -44,22 +47,27 @@ class StudyGroupRepositoryImpl @Inject constructor(
             topic = topic
         )
 
-        studyGroupDao.insertGroup(entity)
+        // Save to Firebase
+        firebaseRepository.saveStudyGroup(group)
+
+        // Save to Local Room
+        studyGroupDao.insertGroup(group.toEntity())
 
         // Add creator as admin
-        studyGroupDao.addMember(
-            StudyGroupMemberEntity(
-                id = UUID.randomUUID().toString(),
-                groupId = groupId,
-                userId = userId,
-                userName = "",
-                userEmail = "",
-                joinedAt = now,
-                role = "ADMIN"
-            )
+        val member = StudyGroupMember(
+            id = UUID.randomUUID().toString(),
+            groupId = groupId,
+            userId = userId,
+            userName = firebaseRepository.getCurrentUser()?.name ?: "Admin",
+            userEmail = firebaseRepository.getCurrentUser()?.email ?: "",
+            joinedAt = java.util.Date(now),
+            role = GroupMemberRole.ADMIN
         )
+        
+        firebaseRepository.joinStudyGroup(groupId, member)
+        studyGroupDao.addMember(member.toEntity())
 
-        Result.success(entity.toDomain())
+        Result.success(group)
     } catch (e: Exception) {
         Result.failure(e)
     }
@@ -71,9 +79,10 @@ class StudyGroupRepositoryImpl @Inject constructor(
         studyGroupDao.getGroupByInviteLink(inviteLink)?.toDomain()
 
     override suspend fun getAllActiveGroups(): Flow<List<StudyGroup>> =
-        studyGroupDao.getAllActiveGroups().map { groups -> groups.map { it.toDomain() } }
+        firebaseRepository.getActiveStudyGroups()
 
     override suspend fun updateGroup(group: StudyGroup): Result<Unit> = try {
+        firebaseRepository.saveStudyGroup(group)
         studyGroupDao.updateGroup(group.toEntity())
         Result.success(Unit)
     } catch (e: Exception) {
@@ -81,9 +90,13 @@ class StudyGroupRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteGroup(groupId: String): Result<Unit> = try {
-        val group = studyGroupDao.getGroupById(groupId)
+        val group = studyGroupDao.getGroupById(groupId)?.toDomain() 
+            ?: firebaseRepository.getActiveStudyGroups().first().find { it.id == groupId }
+        
         if (group != null) {
-            studyGroupDao.deleteGroup(group)
+            val deletedGroup = group.copy(isActive = false)
+            firebaseRepository.saveStudyGroup(deletedGroup)
+            studyGroupDao.updateGroup(deletedGroup.toEntity())
             Result.success(Unit)
         } else {
             Result.failure(Exception("Group not found"))
@@ -98,17 +111,18 @@ class StudyGroupRepositoryImpl @Inject constructor(
         userName: String,
         userEmail: String
     ): Result<StudyGroupMember> = try {
-        val entity = StudyGroupMemberEntity(
+        val member = StudyGroupMember(
             id = UUID.randomUUID().toString(),
             groupId = groupId,
             userId = userId,
             userName = userName,
             userEmail = userEmail,
-            joinedAt = System.currentTimeMillis(),
-            role = "MEMBER"
+            joinedAt = java.util.Date(),
+            role = GroupMemberRole.MEMBER
         )
-        studyGroupDao.addMember(entity)
-        Result.success(entity.toDomain())
+        firebaseRepository.joinStudyGroup(groupId, member)
+        studyGroupDao.addMember(member.toEntity())
+        Result.success(member)
     } catch (e: Exception) {
         Result.failure(e)
     }
@@ -121,13 +135,13 @@ class StudyGroupRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getGroupMembers(groupId: String): Flow<List<StudyGroupMember>> =
-        studyGroupDao.getGroupMembers(groupId).map { members -> members.map { it.toDomain() } }
+        firebaseRepository.getGroupMembers(groupId)
 
     override suspend fun getUserGroups(userId: String): Flow<List<StudyGroup>> =
         studyGroupDao.getUserGroups(userId)
-            .combine(studyGroupDao.getAllActiveGroups()) { members, groups ->
-                val memberGroupIds = members.map { it.groupId }
-                groups.filter { it.id in memberGroupIds }.map { it.toDomain() }
+            .combine(firebaseRepository.getActiveStudyGroups()) { members, groups ->
+                val memberGroupIds = members.map { it.groupId }.toSet()
+                groups.filter { it.id in memberGroupIds }
             }
 
     override suspend fun isMemberOfGroup(groupId: String, userId: String): Boolean =
@@ -139,26 +153,26 @@ class StudyGroupRepositoryImpl @Inject constructor(
         senderName: String,
         message: String
     ): Result<GroupMessage> = try {
-        val entity = GroupMessageEntity(
+        val groupMsg = GroupMessage(
             id = UUID.randomUUID().toString(),
             groupId = groupId,
             senderId = senderId,
             senderName = senderName,
             message = message,
-            timestamp = System.currentTimeMillis(),
+            timestamp = java.util.Date(),
             isEdited = false
         )
-        studyGroupDao.insertMessage(entity)
-        Result.success(entity.toDomain())
+        firebaseRepository.sendGroupMessage(groupId, groupMsg)
+        studyGroupDao.insertMessage(groupMsg.toEntity())
+        Result.success(groupMsg)
     } catch (e: Exception) {
         Result.failure(e)
     }
 
     override suspend fun getGroupMessages(groupId: String): Flow<List<GroupMessage>> =
-        studyGroupDao.getGroupMessages(groupId).map { messages -> messages.map { it.toDomain() } }
+        firebaseRepository.getGroupMessages(groupId)
 
     override suspend fun editMessage(messageId: String, newContent: String): Result<Unit> = try {
-        // Fetch, update, and save
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)
@@ -199,23 +213,23 @@ class StudyGroupRepositoryImpl @Inject constructor(
         topic = topic
     )
 
-    private fun StudyGroupMemberEntity.toDomain() = StudyGroupMember(
+    private fun StudyGroupMember.toEntity() = StudyGroupMemberEntity(
         id = id,
         groupId = groupId,
         userId = userId,
         userName = userName,
         userEmail = userEmail,
-        joinedAt = java.util.Date(joinedAt),
-        role = if (role == "ADMIN") GroupMemberRole.ADMIN else GroupMemberRole.MEMBER
+        joinedAt = joinedAt.time,
+        role = role.name
     )
 
-    private fun GroupMessageEntity.toDomain() = GroupMessage(
+    private fun GroupMessage.toEntity() = GroupMessageEntity(
         id = id,
         groupId = groupId,
         senderId = senderId,
         senderName = senderName,
         message = message,
-        timestamp = java.util.Date(timestamp),
+        timestamp = timestamp.time,
         isEdited = isEdited
     )
 }

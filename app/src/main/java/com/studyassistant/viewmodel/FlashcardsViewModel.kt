@@ -17,8 +17,10 @@ data class FlashcardsUiState(
     val currentIndex: Int = 0,
     val isFlipped: Boolean = false,
     val isLoading: Boolean = false,
+    val isSaving: Boolean = false,
     val error: String? = null,
-    val isFinished: Boolean = false
+    val isFinished: Boolean = false,
+    val isSaved: Boolean = false
 )
 
 @HiltViewModel
@@ -37,7 +39,7 @@ class FlashcardsViewModel @Inject constructor(
 
             val cached = firebaseRepository.getFlashcardsForNote(noteId)
             if (cached.isNotEmpty()) {
-                _uiState.update { it.copy(cards = cached.shuffled(), isLoading = false) }
+                _uiState.update { it.copy(cards = cached.shuffled(), isLoading = false, isSaved = true) }
                 return@launch
             }
 
@@ -55,11 +57,28 @@ class FlashcardsViewModel @Inject constructor(
 
             aiRepository.generateFlashcards(noteId, userId, content, lang).fold(
                 onSuccess = { cards ->
-                    firebaseRepository.saveFlashcards(cards)
-                    _uiState.update { it.copy(cards = cards.shuffled(), isLoading = false) }
+                    // We don't save automatically now
+                    _uiState.update { it.copy(cards = cards.shuffled(), isLoading = false, isSaved = false) }
                 },
                 onFailure = { e ->
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
+                }
+            )
+        }
+    }
+
+    fun saveFlashcards() {
+        val cards = _uiState.value.cards
+        if (cards.isEmpty()) return
+        
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            firebaseRepository.saveFlashcards(cards).fold(
+                onSuccess = {
+                    _uiState.update { it.copy(isSaving = false, isSaved = true) }
+                },
+                onFailure = { e ->
+                    _uiState.update { it.copy(isSaving = false, error = "Failed to save: ${e.message}") }
                 }
             )
         }
@@ -88,7 +107,7 @@ class FlashcardsViewModel @Inject constructor(
 
     fun regenerate(noteId: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, cards = emptyList(), isFinished = false, currentIndex = 0) }
+            _uiState.update { it.copy(isLoading = true, cards = emptyList(), isFinished = false, currentIndex = 0, isSaved = false) }
             val note = localRepository.getCachedNoteById(noteId)
                 ?: firebaseRepository.getNoteById(noteId).getOrNull() ?: return@launch
             val userId = firebaseRepository.getCurrentUser()?.id ?: ""
@@ -96,8 +115,7 @@ class FlashcardsViewModel @Inject constructor(
             val lang = firebaseRepository.getCurrentUser()?.preferredLanguage ?: AppLanguage.ENGLISH
             aiRepository.generateFlashcards(noteId, userId, content, lang).fold(
                 onSuccess = { cards ->
-                    firebaseRepository.saveFlashcards(cards)
-                    _uiState.update { it.copy(cards = cards.shuffled(), isLoading = false) }
+                    _uiState.update { it.copy(cards = cards.shuffled(), isLoading = false, isSaved = false) }
                 },
                 onFailure = { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
             )

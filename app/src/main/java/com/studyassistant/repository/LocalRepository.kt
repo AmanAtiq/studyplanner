@@ -24,6 +24,11 @@ interface LocalRepository {
     suspend fun cacheQuiz(quiz: Quiz)
     suspend fun getCachedQuizzes(): Flow<List<Quiz>>
 
+    // Grade cache
+    suspend fun cacheGrade(entry: GradeEntry)
+    suspend fun getCachedGrades(): Flow<List<GradeEntry>>
+    suspend fun deleteGradeHistory(userId: String)
+
     // Study plan cache
     suspend fun cacheStudyPlan(plan: StudyPlan)
     suspend fun getCachedStudyPlan(): StudyPlan?
@@ -31,4 +36,14 @@ interface LocalRepository {
     // Preferences
     suspend fun saveLanguagePreference(language: AppLanguage)
     suspend fun getLanguagePreference(): AppLanguage
+
+    // Chat
+    suspend fun saveChatMessage(userId: String, noteId: String, message: ChatMessage)
+    fun getChatMessages(userId: String, noteId: String): Flow<List<ChatMessage>>
+
+    // Subjects
+    suspend fun getCachedSubjects(): Flow<List<Subject>>
+    
+    // Badges
+    suspend fun cacheBadge(badge: Badge)
 }

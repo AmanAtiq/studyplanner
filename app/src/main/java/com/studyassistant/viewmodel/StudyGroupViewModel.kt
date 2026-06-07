@@ -44,6 +44,8 @@ class StudyGroupViewModel @Inject constructor(
         loadPublicGroups()
     }
 
+    fun getCurrentUserId(): String? = firebaseRepository.getCurrentUser()?.id
+
     private fun loadUserGroups() {
         viewModelScope.launch {
             try {
@@ -70,7 +72,7 @@ class StudyGroupViewModel @Inject constructor(
                 studyGroupRepository.getAllActiveGroups().collect { groups ->
                     val joinedIds = _uiState.value.userGroups.map { it.id }.toSet()
                     _uiState.update {
-                        it.copy(publicGroups = groups.filter { group -> !group.isPrivate && group.id !in joinedIds })
+                        it.copy(publicGroups = groups.filter { group -> !group.isPrivate && group.id !in joinedIds && group.isActive })
                     }
                 }
             } catch (e: Exception) {
@@ -118,6 +120,20 @@ class StudyGroupViewModel @Inject constructor(
         _uiState.update { it.copy(selectedGroup = group) }
         loadGroupMembers(group.id)
         loadGroupMessages(group.id)
+    }
+
+    fun deleteGroup(groupId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            studyGroupRepository.deleteGroup(groupId).fold(
+                onSuccess = {
+                    loadUserGroups()
+                },
+                onFailure = { e ->
+                    _uiState.update { it.copy(error = e.message, isLoading = false) }
+                }
+            )
+        }
     }
 
     fun openGroup(groupId: String) {

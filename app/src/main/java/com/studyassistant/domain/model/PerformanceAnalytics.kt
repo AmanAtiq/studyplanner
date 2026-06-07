@@ -20,6 +20,7 @@ data class PerformanceAnalyticsData(
     val worstSubject: QuizPerformanceStats? = null,
     val subjectStats: List<QuizPerformanceStats> = emptyList(),
     val recentScores: List<Double> = emptyList(),
+    val trends: List<PerformanceTrend> = emptyList(),
     val lastUpdated: Date = Date()
 )
 

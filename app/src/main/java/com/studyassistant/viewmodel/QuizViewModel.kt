@@ -9,7 +9,6 @@ import com.studyassistant.repository.LocalRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.first
 import java.util.Date
 import javax.inject.Inject
 
@@ -37,8 +36,11 @@ class QuizViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(QuizUiState())
     val uiState: StateFlow<QuizUiState> = _uiState.asStateFlow()
 
+    private var isFinishing = false
+
     fun loadQuiz(noteId: String, forceRefresh: Boolean = false) {
         viewModelScope.launch {
+            isFinishing = false
             _uiState.update {
                 it.copy(
                     quiz = null,
@@ -52,18 +54,15 @@ class QuizViewModel @Inject constructor(
                     error = null
                 )
             }
-            // Prefer language set on the user's profile; fall back to ENGLISH
             val lang = firebaseRepository.getCurrentUser()?.preferredLanguage ?: AppLanguage.ENGLISH
             val note = localRepository.getCachedNoteById(noteId)
-                ?: run {
-                    firebaseRepository.getNoteById(noteId).getOrNull()
-                }
+                ?: firebaseRepository.getNoteById(noteId).getOrNull()
+            
             if (note == null) {
                 _uiState.update { it.copy(isLoading = false, error = "Note not found") }
                 return@launch
             }
 
-            // Check if a quiz already exists in local cache for this note
             val cachedQuizzes = localRepository.getCachedQuizzes().first()
             val existing = if (forceRefresh) null else cachedQuizzes.find { it.noteId == noteId }
             if (existing != null) {
@@ -83,13 +82,7 @@ class QuizViewModel @Inject constructor(
             result.fold(
                 onSuccess = { quiz ->
                     _uiState.update {
-                        it.copy(
-                            quiz = quiz,
-                            isLoading = false,
-                            language = lang,
-                            score = 0,
-                            isReviewMode = false
-                        )
+                        it.copy(quiz = quiz, isLoading = false, language = lang)
                     }
                 },
                 onFailure = { e ->
@@ -126,7 +119,7 @@ class QuizViewModel @Inject constructor(
 
     fun nextQuestion() {
         val state = _uiState.value
-        if (state.isReviewMode || state.isFinished) return
+        if (state.isReviewMode || state.isFinished || isFinishing) return
         val total = state.quiz?.questions?.size ?: 0
         if (state.currentQuestionIndex + 1 >= total) {
             finishQuiz()
@@ -140,10 +133,15 @@ class QuizViewModel @Inject constructor(
     }
 
     private fun finishQuiz() {
+        if (isFinishing) return
+        isFinishing = true
+        
         viewModelScope.launch {
             val state = _uiState.value
             val quiz = state.quiz ?: return@launch
             val completed = quiz.copy(score = state.score, completed = true)
+            
+            // Save quiz
             firebaseRepository.saveQuiz(completed)
             localRepository.cacheQuiz(completed)
 
@@ -155,21 +153,22 @@ class QuizViewModel @Inject constructor(
                 val note = localRepository.getCachedNoteById(quiz.noteId)
                     ?: firebaseRepository.getNoteById(quiz.noteId).getOrNull()
 
-                firebaseRepository.updateStreak(user.id)
-                firebaseRepository.saveGradeEntry(
-                    GradeEntry(
-                        userId = user.id,
-                        quizId = completed.id,
-                        noteId = quiz.noteId,
-                        noteTitle = note?.title ?: completed.title,
-                        subjectId = note?.subjectId ?: "",
-                        score = state.score,
-                        total = total,
-                        percentage = pct,
-                        grade = grade,
-                        createdAt = Date()
-                    )
+                val gradeEntry = GradeEntry(
+                    userId = user.id,
+                    quizId = completed.id,
+                    noteId = quiz.noteId,
+                    noteTitle = note?.title ?: completed.title,
+                    subjectId = note?.subjectId ?: "",
+                    score = state.score,
+                    total = total,
+                    percentage = pct,
+                    grade = grade,
+                    createdAt = Date()
                 )
+
+                firebaseRepository.updateStreak(user.id)
+                firebaseRepository.saveGradeEntry(gradeEntry)
+                localRepository.cacheGrade(gradeEntry)
 
                 val newBadges = evaluateBadges(user.id, pct, grade)
                 _uiState.update { it.copy(quiz = completed, isFinished = true, newlyEarnedBadges = newBadges) }

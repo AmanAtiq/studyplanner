@@ -54,6 +54,17 @@ fun FlashcardsScreen(
                 },
                 actions = {
                     if (uiState.cards.isNotEmpty()) {
+                        if (!uiState.isSaved) {
+                            IconButton(onClick = { viewModel.saveFlashcards() }, enabled = !uiState.isSaving) {
+                                if (uiState.isSaving) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.Save, contentDescription = "Save Flashcards", tint = Color(0xFFFF8BD2))
+                                }
+                            }
+                        } else {
+                            Icon(Icons.Default.CloudDone, contentDescription = "Saved", modifier = Modifier.padding(8.dp), tint = Color(0xFF4CAF50))
+                        }
                         IconButton(onClick = { viewModel.regenerate(noteId) }) {
                             Icon(Icons.Default.Refresh, contentDescription = "Regenerate")
                         }

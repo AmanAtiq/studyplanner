@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.*
@@ -41,6 +42,26 @@ fun GradesScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Clear History") },
+            text = { Text("Are you sure you want to permanently delete all your quiz history? This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.clearHistory()
+                    showDeleteDialog = false
+                }) {
+                    Text("Clear All", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -54,6 +75,11 @@ fun GradesScreen(
                 actions = {
                     IconButton(onClick = onNavigateToTimeline) {
                         Icon(Icons.Default.Timeline, contentDescription = "Progress Timeline")
+                    }
+                    if (uiState.grades.isNotEmpty()) {
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Clear History", tint = MaterialTheme.colorScheme.error)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)

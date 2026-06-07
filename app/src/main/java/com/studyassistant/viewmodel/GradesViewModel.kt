@@ -48,4 +48,20 @@ class GradesViewModel @Inject constructor(
         pct >= 50 -> "D"
         else -> "F"
     }
+
+    fun clearHistory() {
+        val userId = firebaseRepository.getCurrentUser()?.id ?: return
+        viewModelScope.launch {
+            val result = firebaseRepository.deleteGradeHistory(userId)
+            result.fold(
+                onSuccess = {
+                    // Update UI to empty state
+                    _uiState.update { it.copy(grades = emptyList(), averageGrade = "-", averagePct = 0, gradeCounts = emptyMap()) }
+                },
+                onFailure = {
+                    // Keep existing state; optionally log the error
+                }
+            )
+        }
+    }
 }

@@ -16,6 +16,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.studyassistant.domain.model.GroupMessage
@@ -35,6 +36,7 @@ fun GroupChatScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val isGroupActive = uiState.selectedGroup?.isActive ?: true
 
     LaunchedEffect(groupId) {
         viewModel.openGroup(groupId)
@@ -51,7 +53,14 @@ fun GroupChatScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(uiState.selectedGroup?.name ?: "Group Chat", fontWeight = FontWeight.Bold) },
+                title = { 
+                    Column {
+                        Text(uiState.selectedGroup?.name ?: "Group Chat", fontWeight = FontWeight.Bold)
+                        if (!isGroupActive) {
+                            Text("Archived/Deleted", style = MaterialTheme.typography.labelSmall, color = Color.Red)
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -65,16 +74,33 @@ fun GroupChatScreen(
             )
         },
         bottomBar = {
-            ChatInputBar(
-                messageText = uiState.messageInput,
-                onMessageChange = viewModel::updateMessageInput,
-                onSendMessage = {
-                    if (uiState.messageInput.isNotBlank()) {
-                        viewModel.sendMessage(uiState.messageInput)
-                        keyboardController?.hide()
+            if (isGroupActive) {
+                ChatInputBar(
+                    messageText = uiState.messageInput,
+                    onMessageChange = viewModel::updateMessageInput,
+                    onSendMessage = {
+                        if (uiState.messageInput.isNotBlank()) {
+                            viewModel.sendMessage(uiState.messageInput)
+                            keyboardController?.hide()
+                        }
                     }
+                )
+            } else {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
+                    color = Color.Red.copy(alpha = 0.05f),
+                    tonalElevation = 2.dp
+                ) {
+                    Text(
+                        text = "This group has been deleted by the owner. Messaging is disabled.",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Red,
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
-            )
+            }
         }
     ) { padding ->
         ScreenBackground {
@@ -84,7 +110,7 @@ fun GroupChatScreen(
                     .padding(padding)
             ) {
                 when {
-                    uiState.groupMessages.isEmpty() -> {
+                    uiState.groupMessages.isEmpty() && !uiState.isLoading -> {
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -120,10 +146,14 @@ fun GroupChatScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(uiState.groupMessages) { message ->
-                                ChatMessageBubble(message)
+                                ChatMessageBubble(message, isMe = message.senderId == viewModel.getCurrentUserId())
                             }
                         }
                     }
+                }
+
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
 
                 // Error banner
@@ -162,34 +192,35 @@ fun GroupChatScreen(
 }
 
 @Composable
-private fun ChatMessageBubble(message: GroupMessage) {
+private fun ChatMessageBubble(message: GroupMessage, isMe: Boolean) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.Start
+        horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
     ) {
+        val bubbleColor = if (isMe) Color(0xFFFF8BD2).copy(alpha = 0.15f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+        val bubbleShape = if (isMe) {
+            RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 4.dp)
+        } else {
+            RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 16.dp)
+        }
+
         Row(
             modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .background(
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(
-                        topStart = 16.dp,
-                        topEnd = 16.dp,
-                        bottomStart = 4.dp,
-                        bottomEnd = 16.dp
-                    )
-                )
+                .fillMaxWidth(0.85f)
+                .background(color = bubbleColor, shape = bubbleShape)
                 .padding(12.dp),
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    message.senderName,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                if (!isMe) {
+                    Text(
+                        message.senderName,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 Text(
                     message.message,
                     style = MaterialTheme.typography.bodySmall
@@ -208,7 +239,7 @@ private fun ChatMessageBubble(message: GroupMessage) {
             formatTimestamp(message.timestamp),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-            modifier = Modifier.padding(start = 12.dp, top = 4.dp)
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
         )
     }
 }
@@ -220,7 +251,7 @@ private fun ChatInputBar(
     onSendMessage: () -> Unit
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 4.dp
     ) {
@@ -252,7 +283,7 @@ private fun ChatInputBar(
                     .size(48.dp)
                     .background(
                         color = if (messageText.isNotBlank())
-                            MaterialTheme.colorScheme.primary
+                            Color(0xFFFF8BD2)
                         else
                             MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(24.dp)
@@ -262,7 +293,7 @@ private fun ChatInputBar(
                     Icons.AutoMirrored.Filled.Send,
                     contentDescription = "Send",
                     tint = if (messageText.isNotBlank())
-                        MaterialTheme.colorScheme.onPrimary
+                        Color.Black
                     else
                         MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -272,23 +303,6 @@ private fun ChatInputBar(
 }
 
 private fun formatTimestamp(timestamp: java.util.Date): String {
-    val calendar = java.util.Calendar.getInstance()
-    calendar.time = timestamp
-    val now = java.util.Calendar.getInstance()
-
-    return when {
-        isSameDay(calendar, now) -> {
-            val format = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
-            format.format(timestamp)
-        }
-        else -> {
-            val format = java.text.SimpleDateFormat("MMM d, HH:mm", java.util.Locale.getDefault())
-            format.format(timestamp)
-        }
-    }
-}
-
-private fun isSameDay(cal1: java.util.Calendar, cal2: java.util.Calendar): Boolean {
-    return cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR) &&
-            cal1.get(java.util.Calendar.DAY_OF_YEAR) == cal2.get(java.util.Calendar.DAY_OF_YEAR)
+    val calendar = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+    return calendar.format(timestamp)
 }

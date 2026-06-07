@@ -12,15 +12,24 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.studyassistant.domain.model.PerformanceAnalyticsData
+import com.studyassistant.domain.model.PerformanceTrend
 import com.studyassistant.ui.components.ScreenBackground
 import com.studyassistant.viewmodel.PerformanceAnalyticsViewModel
-import com.studyassistant.viewmodel.PerformanceAnalyticsUiState
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,7 +90,7 @@ fun PerformanceAnalyticsScreen(
                         }
                     }
                 }
-                uiState.analytics != null -> {
+                uiState.analytics != null && uiState.analytics!!.totalQuizzesTaken > 0 -> {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
@@ -90,8 +99,8 @@ fun PerformanceAnalyticsScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         item { OverallStatsCard(uiState.analytics!!) }
+                        item { PerformanceTrendCard(uiState.analytics!!.trends) }
                         item { BestWorstSubjectsCard(uiState.analytics!!) }
-                        item { RecentScoresCard(uiState.analytics!!) }
                         item { 
                             Text(
                                 "Subject Breakdown",
@@ -179,6 +188,94 @@ private fun OverallStatsCard(analytics: PerformanceAnalyticsData) {
 }
 
 @Composable
+private fun PerformanceTrendCard(trends: List<PerformanceTrend>) {
+    if (trends.isEmpty()) return
+    
+    val dateFormatter = remember { SimpleDateFormat("MM/dd", Locale.getDefault()) }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                "Quiz Performance History",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .padding(bottom = 24.dp, end = 8.dp)
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val width = size.width
+                    val height = size.height
+                    val barWidth = width / (trends.size.coerceAtLeast(1) * 2)
+                    val spacing = width / trends.size
+                    
+                    // Draw Y axis lines (0, 50, 100)
+                    for (i in 0..2) {
+                        val y = height - (i * 0.5f * height)
+                        drawLine(
+                            color = Color.LightGray.copy(alpha = 0.5f),
+                            start = Offset(0f, y),
+                            end = Offset(width, y),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    }
+                    
+                    trends.forEachIndexed { index, trend ->
+                        val barHeight = (trend.score / 100).toFloat() * height
+                        val x = index * spacing + (spacing / 2) - (barWidth / 2)
+                        
+                        drawRect(
+                            color = when {
+                                trend.score >= 90 -> Color(0xFF4CAF50)
+                                trend.score >= 70 -> Color(0xFFFFC107)
+                                else -> Color(0xFFFF6B6B)
+                            },
+                            topLeft = Offset(x, height - barHeight),
+                            size = Size(barWidth, barHeight)
+                        )
+                    }
+                }
+                
+                // Date labels
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .offset(y = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Show only few labels to avoid crowding
+                    val step = (trends.size / 4).coerceAtLeast(1)
+                    trends.forEachIndexed { index, trend ->
+                        if (index % step == 0 || index == trends.size - 1) {
+                            Text(
+                                text = dateFormatter.format(trend.date),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.Gray,
+                                modifier = Modifier.width(30.dp),
+                                textAlign = TextAlign.Center
+                            )
+                        } else {
+                            Spacer(Modifier.width(0.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun BestWorstSubjectsCard(analytics: PerformanceAnalyticsData) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -249,58 +346,6 @@ private fun BestWorstSubjectsCard(analytics: PerformanceAnalyticsData) {
                         color = Color(0xFFFF6B6B),
                         fontWeight = FontWeight.Bold
                     )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RecentScoresCard(analytics: PerformanceAnalyticsData) {
-    AnimatedVisibility(visible = analytics.recentScores.isNotEmpty()) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    "Recent Scores",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(60.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    analytics.recentScores.forEach { score ->
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight(),
-                            verticalArrangement = Arrangement.Bottom
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .fillMaxHeight((score / 100).toFloat())
-                                    .background(
-                                        color = when {
-                                            score >= 90 -> Color(0xFF4CAF50)
-                                            score >= 70 -> Color(0xFFFFC107)
-                                            else -> Color(0xFFFF6B6B)
-                                        },
-                                        shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
-                                    )
-                            )
-                        }
-                    }
                 }
             }
         }

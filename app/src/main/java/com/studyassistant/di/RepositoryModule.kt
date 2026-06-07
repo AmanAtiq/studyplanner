@@ -1,7 +1,8 @@
 package com.studyassistant.di
+
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.studyassistant.data.local.dao.StudyGroupDao
+import com.studyassistant.data.local.dao.*
 import com.studyassistant.data.remote.AIApiService
 import com.studyassistant.data.store.JsonPersistenceStore
 import com.studyassistant.repository.AIRepository
@@ -30,15 +31,25 @@ object RepositoryModule {
     fun provideFirebaseRepository(
         store: JsonPersistenceStore,
         auth: FirebaseAuth,
-        firestore: FirebaseFirestore
+        firestore: FirebaseFirestore,
+        localRepository: LocalRepository
     ): FirebaseRepository =
-        FirebaseRepositoryImpl(store, auth, firestore)
+        FirebaseRepositoryImpl(store, auth, firestore, localRepository)
 
     @Provides @Singleton
-    fun provideLocalRepository(store: JsonPersistenceStore): LocalRepository =
-        LocalRepositoryImpl(store)
+    fun provideLocalRepository(
+        store: JsonPersistenceStore,
+        chatMessageDao: ChatMessageDao,
+        gradeEntryDao: GradeEntryDao,
+        flashcardDao: FlashcardDao,
+        badgeDao: BadgeDao
+    ): LocalRepository =
+        LocalRepositoryImpl(store, chatMessageDao, gradeEntryDao, flashcardDao, badgeDao)
 
     @Provides @Singleton
-    fun provideStudyGroupRepository(dao: StudyGroupDao): StudyGroupRepository =
-        StudyGroupRepositoryImpl(dao)
+    fun provideStudyGroupRepository(
+        dao: StudyGroupDao,
+        firebaseRepository: FirebaseRepository
+    ): StudyGroupRepository =
+        StudyGroupRepositoryImpl(dao, firebaseRepository)
 }

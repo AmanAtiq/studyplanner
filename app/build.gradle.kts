@@ -141,6 +141,17 @@ dependencies {
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    // JUnit
+    testImplementation("junit:junit:4.13.2")
+// Mockito (for faking dependencies)
+    testImplementation("org.mockito:mockito-core:5.0.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.0.0")
+// Coroutines testing (you use viewModelScope)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+// Room testing
+    testImplementation("androidx.room:room-testing:2.6.1")
+// Truth (easier assertions)
+    testImplementation("com.google.truth:truth:1.1.5")
 }
 
 kapt {

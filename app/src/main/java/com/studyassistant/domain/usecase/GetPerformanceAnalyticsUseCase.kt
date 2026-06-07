@@ -1,77 +1,92 @@
 package com.studyassistant.domain.usecase
 
-import com.studyassistant.domain.model.PerformanceAnalyticsData
-import com.studyassistant.domain.model.QuizPerformanceStats
+import com.studyassistant.domain.model.*
 import com.studyassistant.repository.LocalRepository
+import com.studyassistant.repository.FirebaseRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onStart
 import javax.inject.Inject
 
 class GetPerformanceAnalyticsUseCase @Inject constructor(
-    private val localRepository: LocalRepository
+    private val localRepository: LocalRepository,
+    private val firebaseRepository: FirebaseRepository
 ) {
     suspend operator fun invoke(): Flow<PerformanceAnalyticsData> {
+        val userId = firebaseRepository.getCurrentUser()?.id ?: ""
+        
+        // We combine local grades with firebase grades to ensure the analytics are always up to date
+        // In a real app, you'd sync them, but here we'll just merge them for the view
+        val localGradesFlow = localRepository.getCachedGrades()
+        val remoteGradesFlow = firebaseRepository.getGradeHistory(userId).onStart { emit(emptyList()) }
         val notesFlow = localRepository.getCachedNotes()
-        val quizzesFlow = localRepository.getCachedQuizzes()
+        val subjectsFlow = localRepository.getCachedSubjects()
 
-        return combine(quizzesFlow, notesFlow) { quizzes, notes ->
+        return combine(localGradesFlow, remoteGradesFlow, notesFlow, subjectsFlow) { local, remote, notes, subjects ->
+            // Merge grades and remove duplicates by ID
+            val allGrades = (local + remote).distinctBy { it.id }
+            
+            if (allGrades.isEmpty()) {
+                return@combine PerformanceAnalyticsData()
+            }
+
+            val subjectsById = subjects.associateBy { it.id }
             val notesById = notes.associateBy { it.id }
-            val completedQuizzes = quizzes.filter { it.completed }
 
-            if (completedQuizzes.isEmpty()) {
-                PerformanceAnalyticsData()
-            } else {
-                val groupedBySubject = completedQuizzes.groupBy { quiz ->
-                    val note = notesById[quiz.noteId]
-                    note?.subjectId?.takeIf { it.isNotBlank() }
-                        ?: note?.title?.takeIf { it.isNotBlank() }
-                        ?: quiz.title.ifBlank { "Uncategorized" }
-                }
-                val subjectStats = groupedBySubject.map { (subjectId, quizzesInSubject) ->
-                    val firstQuiz = quizzesInSubject.first()
-                    val note = notesById[firstQuiz.noteId]
-                    val scores = quizzesInSubject.map { it.score.toDouble() }
-                    val avgScore = scores.average()
-                    val trend = calculateTrend(quizzesInSubject)
+            // Group grades by subject
+            val groupedBySubject = allGrades.groupBy { it.subjectId }
+            
+            val subjectStats = groupedBySubject.map { (subjectId, subjectGrades) ->
+                val subjectName = subjectsById[subjectId]?.name 
+                    ?: notesById[subjectGrades.firstOrNull()?.noteId]?.title
+                    ?: subjectGrades.firstOrNull()?.noteTitle
+                    ?: "Unknown Subject"
+                
+                val scores = subjectGrades.map { it.percentage.toDouble() }
+                val avgScore = scores.average()
+                
+                QuizPerformanceStats(
+                    subjectId = subjectId,
+                    subjectName = subjectName,
+                    totalQuizzes = subjectGrades.size,
+                    averageScore = avgScore,
+                    highestScore = scores.maxOrNull() ?: 0.0,
+                    lowestScore = scores.minOrNull() ?: 0.0,
+                    improvementTrend = calculateGradeTrend(subjectGrades)
+                )
+            }
 
-                    QuizPerformanceStats(
-                        subjectId = subjectId,
-                        subjectName = note?.title?.takeIf { it.isNotBlank() }
-                            ?: firstQuiz.title.ifBlank { "Uncategorized" },
-                        totalQuizzes = quizzesInSubject.size,
-                        averageScore = avgScore,
-                        highestScore = scores.maxOrNull() ?: 0.0,
-                        lowestScore = scores.minOrNull() ?: 0.0,
-                        improvementTrend = trend
+            val allPercentages = allGrades.map { it.percentage.toDouble() }
+            
+            // Trend data: sorted by date
+            val trendData = allGrades.sortedBy { it.createdAt }
+                .map { grade ->
+                    PerformanceTrend(
+                        date = grade.createdAt,
+                        score = grade.percentage.toDouble(),
+                        subjectId = grade.subjectId
                     )
                 }
 
-                val allScores = completedQuizzes.map { it.score.toDouble() }
-                val recentScores = completedQuizzes
-                    .sortedByDescending { it.createdAt }
-                    .take(10)
-                    .map { it.score.toDouble() }
-
-                PerformanceAnalyticsData(
-                    overallAverageScore = allScores.average(),
-                    totalQuizzesTaken = completedQuizzes.size,
-                    bestSubject = subjectStats.maxByOrNull { it.averageScore },
-                    worstSubject = subjectStats.minByOrNull { it.averageScore },
-                    subjectStats = subjectStats.sortedByDescending { it.averageScore },
-                    recentScores = recentScores
-                )
-            }
+            PerformanceAnalyticsData(
+                userId = userId,
+                overallAverageScore = allPercentages.average(),
+                totalQuizzesTaken = allGrades.size,
+                bestSubject = subjectStats.maxByOrNull { it.averageScore },
+                worstSubject = subjectStats.minByOrNull { it.averageScore },
+                subjectStats = subjectStats.sortedByDescending { it.averageScore },
+                recentScores = allGrades.sortedByDescending { it.createdAt }.take(10).map { it.percentage.toDouble() },
+                trends = trendData
+            )
         }
     }
 
-    private fun calculateTrend(quizzes: List<com.studyassistant.domain.model.Quiz>): Double {
-        if (quizzes.size < 2) return 0.0
-        val sorted = quizzes.sortedBy { it.createdAt }
-        val firstHalf = sorted.take(sorted.size / 2).map { it.score }
-        val secondHalf = sorted.drop(sorted.size / 2).map { it.score }
+    private fun calculateGradeTrend(grades: List<GradeEntry>): Double {
+        if (grades.size < 2) return 0.0
+        val sorted = grades.sortedBy { it.createdAt }
+        val firstHalf = sorted.take(sorted.size / 2).map { it.percentage }
+        val secondHalf = sorted.drop(sorted.size / 2).map { it.percentage }
         
-        val firstAvg = firstHalf.average()
-        val secondAvg = secondHalf.average()
-        return secondAvg - firstAvg
+        return secondHalf.average() - firstHalf.average()
     }
 }
